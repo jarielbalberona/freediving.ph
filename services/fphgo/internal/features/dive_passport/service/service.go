@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"slices"
+	"sort"
 	"strings"
 	"time"
 
@@ -166,13 +168,14 @@ func (s *Service) GetProfilePassport(ctx context.Context, username, viewerUserID
 	passport.MapPreview = s.mapPreview(ctx, username, viewerUserID)
 	passport.Stats.VisitedSiteCount = passport.MapPreview.VisitedSiteCount
 
-	passport.BadgeShowcase = s.badgeShowcase(ctx, username)
+	passport.BadgeShowcase = s.badgeShowcase(ctx, username, settings.FeaturedBadgeIDs)
 	passport.Stats.BadgeCount = int64(len(passport.BadgeShowcase.Badges))
 
 	passport.JourneyHighlights = s.journeyHighlights(ctx, username, viewerUserID)
 	passport.Stats.JourneyEntryCount = int64(len(passport.JourneyHighlights.Entries))
 	passport.Memories = s.memoryPreview(ctx, username, viewerUserID)
 	passport.Stats.MemoryCount = int64(len(passport.Memories.Items))
+	passport = applyPresentationSettings(passport)
 
 	return passport, nil
 }
@@ -299,7 +302,7 @@ func (s *Service) mapPreview(ctx context.Context, username, viewerUserID string)
 	}
 }
 
-func (s *Service) badgeShowcase(ctx context.Context, username string) BadgeShowcase {
+func (s *Service) badgeShowcase(ctx context.Context, username string, featuredBadgeIDs []string) BadgeShowcase {
 	if s.profiles == nil {
 		return BadgeShowcase{State: SectionState{Status: "unavailable", Reason: "source_unavailable"}}
 	}
@@ -307,11 +310,13 @@ func (s *Service) badgeShowcase(ctx context.Context, username string) BadgeShowc
 	if err != nil {
 		return BadgeShowcase{State: SectionState{Status: "unavailable", Reason: "source_unavailable"}}
 	}
-	state := readyOrEmpty(len(result.Badges) + len(result.AutoStats))
+	curatedBadges := curateBadgePreview(result.Badges, featuredBadgeIDs)
+	autoStats := curateAutoStats(result.AutoStats)
+	state := readyOrEmpty(len(curatedBadges) + len(autoStats))
 	return BadgeShowcase{
 		State:     state,
-		Badges:    append([]profilesservice.UserBadge(nil), result.Badges...),
-		AutoStats: append([]profilesservice.UserBadge(nil), result.AutoStats...),
+		Badges:    curatedBadges,
+		AutoStats: autoStats,
 	}
 }
 
@@ -356,4 +361,147 @@ func readyOrEmpty(count int) SectionState {
 		return SectionState{Status: "empty", Reason: "no_data"}
 	}
 	return SectionState{Status: "ready"}
+}
+
+func applyPresentationSettings(passport Passport) Passport {
+	if !passport.Settings.ShowMap {
+		passport.MapPreview = MapPreview{
+			State: SectionState{Status: "hidden", Reason: "settings_hidden"},
+		}
+		passport.Stats.VisitedSiteCount = 0
+	}
+	if !passport.Settings.ShowBadges {
+		passport.BadgeShowcase = BadgeShowcase{
+			State: SectionState{Status: "hidden", Reason: "settings_hidden"},
+		}
+		passport.Stats.BadgeCount = 0
+	}
+	if !passport.Settings.ShowJourney {
+		passport.JourneyHighlights = JourneyHighlights{
+			State: SectionState{Status: "hidden", Reason: "settings_hidden"},
+		}
+		passport.Stats.JourneyEntryCount = 0
+	}
+	if !passport.Settings.ShowMemories {
+		passport.Memories = MemoryPreview{
+			State: SectionState{Status: "hidden", Reason: "settings_hidden"},
+		}
+		passport.Stats.MemoryCount = 0
+	}
+	return passport
+}
+
+func curateBadgePreview(badges []profilesservice.UserBadge, featuredBadgeIDs []string) []profilesservice.UserBadge {
+	if len(badges) == 0 {
+		return nil
+	}
+	const previewLimit = 3
+
+	byID := make(map[string]profilesservice.UserBadge, len(badges))
+	for _, badge := range badges {
+		byID[badge.ID] = badge
+	}
+
+	selected := make([]profilesservice.UserBadge, 0, previewLimit)
+	seen := map[string]struct{}{}
+	for _, badgeID := range featuredBadgeIDs {
+		badge, ok := byID[strings.TrimSpace(badgeID)]
+		if !ok {
+			continue
+		}
+		if _, exists := seen[badge.ID]; exists {
+			continue
+		}
+		selected = append(selected, badge)
+		seen[badge.ID] = struct{}{}
+		if len(selected) == previewLimit {
+			return selected
+		}
+	}
+
+	ranked := append([]profilesservice.UserBadge(nil), badges...)
+	sort.SliceStable(ranked, func(i, j int) bool {
+		left := badgeSignalScore(ranked[i])
+		right := badgeSignalScore(ranked[j])
+		if left != right {
+			return left > right
+		}
+		if ranked[i].DisplayOrder != ranked[j].DisplayOrder {
+			return ranked[i].DisplayOrder < ranked[j].DisplayOrder
+		}
+		return strings.Compare(ranked[i].ID, ranked[j].ID) < 0
+	})
+	for _, badge := range ranked {
+		if len(selected) == previewLimit {
+			break
+		}
+		if _, exists := seen[badge.ID]; exists {
+			continue
+		}
+		selected = append(selected, badge)
+		seen[badge.ID] = struct{}{}
+	}
+	return selected
+}
+
+func curateAutoStats(badges []profilesservice.UserBadge) []profilesservice.UserBadge {
+	if len(badges) == 0 {
+		return nil
+	}
+	const previewLimit = 2
+	ranked := append([]profilesservice.UserBadge(nil), badges...)
+	sort.SliceStable(ranked, func(i, j int) bool {
+		if ranked[i].DisplayOrder != ranked[j].DisplayOrder {
+			return ranked[i].DisplayOrder < ranked[j].DisplayOrder
+		}
+		return strings.Compare(ranked[i].ID, ranked[j].ID) < 0
+	})
+	return append([]profilesservice.UserBadge(nil), ranked[:min(previewLimit, len(ranked))]...)
+}
+
+func badgeSignalScore(badge profilesservice.UserBadge) int {
+	score := 0
+	switch badge.Template.Category {
+	case "certification":
+		score += 500
+	case "personal_best":
+		score += 420
+	case "experience":
+		score += 320
+	case "community_role":
+		score += 220
+	default:
+		score += 100
+	}
+	switch badge.VerificationStatus {
+	case "verified":
+		score += 80
+	case "pending":
+		score += 30
+	case "rejected":
+		score -= 40
+	}
+	if badge.IsSystemVerified {
+		score += 60
+	}
+	switch badge.Template.Rarity {
+	case "legendary":
+		score += 50
+	case "epic":
+		score += 40
+	case "rare":
+		score += 30
+	case "uncommon":
+		score += 20
+	case "common":
+		score += 10
+	}
+	if badge.DisplayValue != "" {
+		score += 10
+	}
+	return score
+}
+
+func min(left, right int) int {
+	return slices.Min([]int{left, right})
 }

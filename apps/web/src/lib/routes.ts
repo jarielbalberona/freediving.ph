@@ -27,4 +27,15 @@ export const getProfileCreateRoute = (username: string): string =>
 export const getProfileSettingsRoute = (username: string): string =>
   `${getProfileRoute(username)}/settings`;
 
+export const getDiveMemoriesRoute = (
+  username: string,
+  entrySlug: string,
+): string =>
+  `/dive-memories/${encodeURIComponent(entrySlug.trim().toLowerCase())}/${encodeURIComponent(normalizeUsername(username))}`;
+
+export const getDiveMemoriesCreateRoute = (
+  username: string,
+  entrySlug: string,
+): string => `${getDiveMemoriesRoute(username, entrySlug)}/new`;
+
 export const getProfileFallbackRoute = (): string => "/profile";

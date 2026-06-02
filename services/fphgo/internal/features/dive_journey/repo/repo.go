@@ -142,6 +142,9 @@ func (r *Repo) ListForProfile(ctx context.Context, input ListProfileInput) ([]Jo
 	if err := r.hydrateMedia(ctx, out); err != nil {
 		return nil, err
 	}
+	if err := r.hydrateGeneratedSourceMedia(ctx, out); err != nil {
+		return nil, err
+	}
 	return out, nil
 }
 
@@ -241,6 +244,7 @@ func (r *Repo) listSyntheticMediaMilestones(ctx context.Context, input ListProfi
 			ds.name,
 			COALESCE(NULLIF(mp.post_caption, ''), ''),
 			COUNT(mi.id)::int,
+			COALESCE(ARRAY_AGG(mi.media_object_id::text ORDER BY mi.sort_order ASC, mi.id ASC), '{}'::text[]),
 			mp.created_at,
 			mp.created_at,
 			mp.updated_at,
@@ -293,12 +297,13 @@ func (r *Repo) listSyntheticMediaMilestones(ctx context.Context, input ListProfi
 			siteName   string
 			caption    string
 			mediaCount int32
+			mediaIDs   []string
 			occurredAt time.Time
 			createdAt  time.Time
 			updatedAt  time.Time
 			visibility string
 		)
-		if err := rows.Scan(&postID, &userID, &diveSiteID, &siteName, &caption, &mediaCount, &occurredAt, &createdAt, &updatedAt, &visibility); err != nil {
+		if err := rows.Scan(&postID, &userID, &diveSiteID, &siteName, &caption, &mediaCount, &mediaIDs, &occurredAt, &createdAt, &updatedAt, &visibility); err != nil {
 			return nil, err
 		}
 		out = append(out, JourneyEntry{
@@ -310,12 +315,14 @@ func (r *Repo) listSyntheticMediaMilestones(ctx context.Context, input ListProfi
 			DiveSiteID:      diveSiteID,
 			SourceType:      "media",
 			SourceID:        postID,
+			CoverMediaID:    firstMediaID(mediaIDs),
 			Visibility:      journeyVisibilityFromSource(visibility),
 			VisibilityLabel: visibilityLabelFromSource(visibility),
 			State:           "active",
 			OccurredAt:      occurredAt.UTC(),
 			CreatedAt:       createdAt.UTC(),
 			UpdatedAt:       updatedAt.UTC(),
+			MediaIDs:        append([]string(nil), mediaIDs...),
 		})
 	}
 	return out, rows.Err()
@@ -427,6 +434,13 @@ func (r *Repo) listSyntheticMemoryMilestones(ctx context.Context, input ListProf
 			dm.dive_site_id::text,
 			dm.title,
 			dm.body,
+			COALESCE((
+				SELECT ARRAY_AGG(dmm.media_id::text ORDER BY dmm.sort_order ASC, dmm.id ASC)
+				FROM dive_memory_media dmm
+				JOIN media_objects mo ON mo.id = dmm.media_id
+				WHERE dmm.memory_id = dm.id
+				  AND mo.state = 'active'
+			), '{}'::text[]),
 			dm.occurred_at,
 			dm.created_at,
 			dm.updated_at,
@@ -463,12 +477,13 @@ func (r *Repo) listSyntheticMemoryMilestones(ctx context.Context, input ListProf
 			diveSiteID string
 			title      string
 			body       string
+			mediaIDs   []string
 			occurredAt time.Time
 			createdAt  time.Time
 			updatedAt  time.Time
 			visibility string
 		)
-		if err := rows.Scan(&memoryID, &userID, &diveSiteID, &title, &body, &occurredAt, &createdAt, &updatedAt, &visibility); err != nil {
+		if err := rows.Scan(&memoryID, &userID, &diveSiteID, &title, &body, &mediaIDs, &occurredAt, &createdAt, &updatedAt, &visibility); err != nil {
 			return nil, err
 		}
 		out = append(out, JourneyEntry{
@@ -480,12 +495,14 @@ func (r *Repo) listSyntheticMemoryMilestones(ctx context.Context, input ListProf
 			DiveSiteID:      diveSiteID,
 			SourceType:      "memory",
 			SourceID:        memoryID,
+			CoverMediaID:    firstMediaID(mediaIDs),
 			Visibility:      journeyVisibilityFromMemory(visibility),
 			VisibilityLabel: visibilityLabelFromMemory(visibility),
 			State:           "active",
 			OccurredAt:      occurredAt.UTC(),
 			CreatedAt:       createdAt.UTC(),
 			UpdatedAt:       updatedAt.UTC(),
+			MediaIDs:        append([]string(nil), mediaIDs...),
 		})
 	}
 	return out, rows.Err()
@@ -667,6 +684,106 @@ func (r *Repo) hydrateMedia(ctx context.Context, entries []JourneyEntry) error {
 	return rows.Err()
 }
 
+func (r *Repo) hydrateGeneratedSourceMedia(ctx context.Context, entries []JourneyEntry) error {
+	if len(entries) == 0 {
+		return nil
+	}
+
+	memoryEntryBySource := map[string][]int{}
+	mediaEntryBySource := map[string][]int{}
+	for idx, entry := range entries {
+		if len(entry.MediaIDs) > 0 || entry.CoverMediaID != "" {
+			continue
+		}
+		switch entry.SourceType {
+		case "memory":
+			if entry.SourceID != "" {
+				memoryEntryBySource[entry.SourceID] = append(memoryEntryBySource[entry.SourceID], idx)
+			}
+		case "media":
+			if entry.SourceID != "" {
+				mediaEntryBySource[entry.SourceID] = append(mediaEntryBySource[entry.SourceID], idx)
+			}
+		}
+	}
+
+	if err := r.hydrateMemorySourceMedia(ctx, entries, memoryEntryBySource); err != nil {
+		return err
+	}
+	if err := r.hydratePostSourceMedia(ctx, entries, mediaEntryBySource); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (r *Repo) hydrateMemorySourceMedia(ctx context.Context, entries []JourneyEntry, entryBySource map[string][]int) error {
+	if len(entryBySource) == 0 {
+		return nil
+	}
+	rows, err := r.db.Query(ctx, `
+		SELECT dmm.memory_id::text, dmm.media_id::text
+		FROM dive_memory_media dmm
+		JOIN media_objects mo ON mo.id = dmm.media_id
+		WHERE dmm.memory_id = ANY($1::uuid[])
+		  AND mo.state = 'active'
+		ORDER BY dmm.memory_id, dmm.sort_order ASC, dmm.id ASC
+	`, uuidArray(mapKeys(entryBySource)))
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var sourceID, mediaID string
+		if err := rows.Scan(&sourceID, &mediaID); err != nil {
+			return err
+		}
+		for _, idx := range entryBySource[sourceID] {
+			entries[idx].MediaIDs = append(entries[idx].MediaIDs, mediaID)
+			if entries[idx].CoverMediaID == "" {
+				entries[idx].CoverMediaID = mediaID
+			}
+		}
+	}
+	return rows.Err()
+}
+
+func (r *Repo) hydratePostSourceMedia(ctx context.Context, entries []JourneyEntry, entryBySource map[string][]int) error {
+	if len(entryBySource) == 0 {
+		return nil
+	}
+	rows, err := r.db.Query(ctx, `
+		SELECT mp.id::text, mi.media_object_id::text
+		FROM media_posts mp
+		JOIN media_items mi ON mi.post_id = mp.id
+		JOIN media_objects mo ON mo.id = mi.media_object_id
+		WHERE mp.id = ANY($1::uuid[])
+		  AND mp.deleted_at IS NULL
+		  AND mi.status = 'active'
+		  AND mi.processing_status = 'ready'
+		  AND mi.moderation_status = 'approved'
+		  AND mi.deleted_at IS NULL
+		  AND mo.state = 'active'
+		ORDER BY mp.id, mi.sort_order ASC, mi.id ASC
+	`, uuidArray(mapKeys(entryBySource)))
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var sourceID, mediaID string
+		if err := rows.Scan(&sourceID, &mediaID); err != nil {
+			return err
+		}
+		for _, idx := range entryBySource[sourceID] {
+			entries[idx].MediaIDs = append(entries[idx].MediaIDs, mediaID)
+			if entries[idx].CoverMediaID == "" {
+				entries[idx].CoverMediaID = mediaID
+			}
+		}
+	}
+	return rows.Err()
+}
+
 func mapEntry(row divejourneysqlc.JourneyEntry) JourneyEntry {
 	return JourneyEntry{
 		ID:              uuidString(row.ID),
@@ -736,6 +853,21 @@ func timePtr(value pgtype.Timestamptz) *time.Time {
 	}
 	t := value.Time
 	return &t
+}
+
+func firstMediaID(mediaIDs []string) string {
+	if len(mediaIDs) == 0 {
+		return ""
+	}
+	return mediaIDs[0]
+}
+
+func mapKeys[V any](items map[string]V) []string {
+	keys := make([]string, 0, len(items))
+	for key := range items {
+		keys = append(keys, key)
+	}
+	return keys
 }
 
 func sortJourneyEntries(items []JourneyEntry) {

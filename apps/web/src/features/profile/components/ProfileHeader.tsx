@@ -123,7 +123,7 @@ export function ProfileHeader({
         <div className="space-y-3">
           <div className="space-y-1">
             <div className="flex items-center gap-2">
-              <h1 className="text-xl font-semibold text-foreground">
+              <h1 className="text-md font-semibold text-foreground">
                 {profile.username}
               </h1>
               {isOwner ? (
@@ -152,7 +152,7 @@ export function ProfileHeader({
               </Link>
             ) : null}
             {profile.bio ? (
-              <p className="whitespace-pre-line text-sm leading-6 text-muted-foreground">
+              <p className="whitespace-pre-line text-sm mb-3 leading-6 text-muted-foreground">
                 {profile.bio}
               </p>
             ) : null}

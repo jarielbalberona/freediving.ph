@@ -239,6 +239,194 @@ func TestJourneyRepositoryUpsertGeneratedIsIdempotentBySource(t *testing.T) {
 	}
 }
 
+func TestJourneyRepositorySyntheticEntriesIncludePreviewMediaRefs(t *testing.T) {
+	dsn := os.Getenv("TEST_DB_DSN")
+	if dsn == "" {
+		t.Skip("TEST_DB_DSN is not set")
+	}
+	ctx := context.Background()
+	pool, err := pgxpool.New(ctx, dsn)
+	if err != nil {
+		t.Fatalf("connect test db: %v", err)
+	}
+	defer pool.Close()
+
+	ownerID := "61000000-0000-4000-8000-000000000201"
+	siteID := "64000000-0000-4000-8000-000000000201"
+	uploadGroupID := "65000000-0000-4000-8000-000000000201"
+	postID := "66000000-0000-4000-8000-000000000201"
+	postMediaID := "67000000-0000-4000-8000-000000000201"
+	memoryID := "68000000-0000-4000-8000-000000000201"
+	memoryMediaID := "69000000-0000-4000-8000-000000000201"
+
+	cleanupJourneySyntheticPreviewRows(t, ctx, pool, ownerID, siteID, uploadGroupID, postID, postMediaID, memoryID, memoryMediaID)
+	defer cleanupJourneySyntheticPreviewRows(t, ctx, pool, ownerID, siteID, uploadGroupID, postID, postMediaID, memoryID, memoryMediaID)
+
+	seedJourneyUser(t, ctx, pool, ownerID, "journey-preview-owner")
+	seedJourneyMedia(t, ctx, pool, postMediaID, ownerID, "journey/post-preview.jpg")
+	seedJourneyMedia(t, ctx, pool, memoryMediaID, ownerID, "journey/memory-preview.jpg")
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO dive_sites (id, slug, name, area, moderation_state)
+		VALUES ($1, 'journey-preview-site', 'Journey Preview Site', 'Batangas', 'approved')
+	`, siteID); err != nil {
+		t.Fatalf("seed dive site: %v", err)
+	}
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO media_upload_groups (id, author_app_user_id, source, item_count)
+		VALUES ($1, $2, 'create_post', 1)
+	`, uploadGroupID, ownerID); err != nil {
+		t.Fatalf("seed upload group: %v", err)
+	}
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO media_posts (id, author_app_user_id, upload_group_id, dive_site_id, post_caption, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, 'Surface interval', $5, $5)
+	`, postID, ownerID, uploadGroupID, siteID, time.Date(2026, 6, 2, 9, 0, 0, 0, time.UTC)); err != nil {
+		t.Fatalf("seed media post: %v", err)
+	}
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO media_items (
+			id, post_id, media_object_id, author_app_user_id, upload_group_id, dive_site_id,
+			type, storage_key, mime_type, width, height, sort_order, status, processing_status, moderation_status
+		)
+		VALUES (
+			$1, $2, $3, $4, $5, $6,
+			'photo', 'journey/post-preview.jpg', 'image/jpeg', 1200, 1200, 0, 'active', 'ready', 'approved'
+		)
+	`, "66500000-0000-4000-8000-000000000201", postID, postMediaID, ownerID, uploadGroupID, siteID); err != nil {
+		t.Fatalf("seed media item: %v", err)
+	}
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO user_dive_sites (
+			user_id, dive_site_id, first_post_id, first_visited_at, last_post_id, last_visited_at, media_post_count, visibility
+		)
+		VALUES ($1, $2, $3, $4, $3, $4, 1, 'public')
+	`, ownerID, siteID, postID, time.Date(2026, 6, 2, 9, 0, 0, 0, time.UTC)); err != nil {
+		t.Fatalf("seed user_dive_sites: %v", err)
+	}
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO dive_memories (id, author_user_id, dive_site_id, title, body, visibility, occurred_at, created_at, updated_at)
+		VALUES ($1, $2, $3, 'Memory preview', 'Coral wall', 'public', $4, $4, $4)
+	`, memoryID, ownerID, siteID, time.Date(2026, 6, 2, 11, 0, 0, 0, time.UTC)); err != nil {
+		t.Fatalf("seed dive memory: %v", err)
+	}
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO dive_memory_media (memory_id, media_id, sort_order)
+		VALUES ($1, $2, 0)
+	`, memoryID, memoryMediaID); err != nil {
+		t.Fatalf("seed dive memory media: %v", err)
+	}
+
+	repository := New(pool)
+	items, err := repository.ListForProfile(ctx, ListProfileInput{
+		TargetUserID: ownerID,
+		ViewerIsSelf: true,
+		Limit:        20,
+	})
+	if err != nil {
+		t.Fatalf("list journey with synthetic previews: %v", err)
+	}
+
+	var foundMedia, foundMemory bool
+	for _, item := range items {
+		if item.SourceType == "media" && item.SourceID == postID {
+			foundMedia = true
+			if item.CoverMediaID != postMediaID {
+				t.Fatalf("expected media synthetic cover preview %q, got %#v", postMediaID, item)
+			}
+			if len(item.MediaIDs) != 1 || item.MediaIDs[0] != postMediaID {
+				t.Fatalf("expected media synthetic media ids, got %#v", item.MediaIDs)
+			}
+		}
+		if item.SourceType == "memory" && item.SourceID == memoryID {
+			foundMemory = true
+			if item.CoverMediaID != memoryMediaID {
+				t.Fatalf("expected memory synthetic cover preview %q, got %#v", memoryMediaID, item)
+			}
+			if len(item.MediaIDs) != 1 || item.MediaIDs[0] != memoryMediaID {
+				t.Fatalf("expected memory synthetic media ids, got %#v", item.MediaIDs)
+			}
+		}
+	}
+	if !foundMedia || !foundMemory {
+		t.Fatalf("expected synthetic media and memory entries, got %#v", items)
+	}
+}
+
+func TestJourneyRepositoryExistingGeneratedMemoryRowsHydratePreviewMediaRefs(t *testing.T) {
+	dsn := os.Getenv("TEST_DB_DSN")
+	if dsn == "" {
+		t.Skip("TEST_DB_DSN is not set")
+	}
+	ctx := context.Background()
+	pool, err := pgxpool.New(ctx, dsn)
+	if err != nil {
+		t.Fatalf("connect test db: %v", err)
+	}
+	defer pool.Close()
+
+	ownerID := "61000000-0000-4000-8000-000000000301"
+	siteID := "64000000-0000-4000-8000-000000000301"
+	memoryID := "68000000-0000-4000-8000-000000000301"
+	memoryMediaID := "69000000-0000-4000-8000-000000000301"
+	journeyEntryID := "62000000-0000-4000-8000-000000000301"
+
+	cleanupJourneySyntheticPreviewRows(t, ctx, pool, ownerID, siteID, "", "", "", memoryID, memoryMediaID)
+	defer cleanupJourneySyntheticPreviewRows(t, ctx, pool, ownerID, siteID, "", "", "", memoryID, memoryMediaID)
+
+	seedJourneyUser(t, ctx, pool, ownerID, "journey-generated-memory-owner")
+	seedJourneyMedia(t, ctx, pool, memoryMediaID, ownerID, "journey/generated-memory-preview.jpg")
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO dive_sites (id, slug, name, area, moderation_state)
+		VALUES ($1, 'journey-generated-memory-site', 'Journey Generated Memory Site', 'Batangas', 'approved')
+	`, siteID); err != nil {
+		t.Fatalf("seed dive site: %v", err)
+	}
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO dive_memories (id, author_user_id, dive_site_id, title, body, visibility, occurred_at, created_at, updated_at)
+		VALUES ($1, $2, $3, 'Generated memory preview', 'Blue water', 'public', $4, $4, $4)
+	`, memoryID, ownerID, siteID, time.Date(2026, 6, 2, 13, 0, 0, 0, time.UTC)); err != nil {
+		t.Fatalf("seed dive memory: %v", err)
+	}
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO dive_memory_media (memory_id, media_id, sort_order)
+		VALUES ($1, $2, 0)
+	`, memoryID, memoryMediaID); err != nil {
+		t.Fatalf("seed dive memory media: %v", err)
+	}
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO journey_entries (
+			id, user_id, type, title, body, dive_site_id, source_type, source_id, visibility, occurred_at
+		)
+		VALUES ($1, $2, 'memory', 'Generated memory preview', 'Blue water', $3, 'memory', $4, 'public', $5)
+	`, journeyEntryID, ownerID, siteID, memoryID, time.Date(2026, 6, 2, 13, 0, 0, 0, time.UTC)); err != nil {
+		t.Fatalf("seed generated journey entry: %v", err)
+	}
+
+	repository := New(pool)
+	items, err := repository.ListForProfile(ctx, ListProfileInput{
+		TargetUserID: ownerID,
+		ViewerIsSelf: true,
+		Limit:        20,
+	})
+	if err != nil {
+		t.Fatalf("list generated memory journey: %v", err)
+	}
+
+	for _, item := range items {
+		if item.ID != journeyEntryID {
+			continue
+		}
+		if item.CoverMediaID != memoryMediaID {
+			t.Fatalf("expected generated memory journey cover preview %q, got %#v", memoryMediaID, item)
+		}
+		if len(item.MediaIDs) != 1 || item.MediaIDs[0] != memoryMediaID {
+			t.Fatalf("expected generated memory journey media ids, got %#v", item.MediaIDs)
+		}
+		return
+	}
+	t.Fatalf("expected generated memory journey row %q in %#v", journeyEntryID, items)
+}
+
 func cleanupJourneyRepositoryRows(t *testing.T, ctx context.Context, pool *pgxpool.Pool, entryIDs, userIDs, mediaIDs []string) {
 	t.Helper()
 	if len(entryIDs) > 0 {
@@ -296,5 +484,62 @@ func seedJourneyMedia(t *testing.T, ctx context.Context, pool *pgxpool.Pool, id,
 		ON CONFLICT (id) DO UPDATE SET owner_app_user_id = EXCLUDED.owner_app_user_id, state = 'active'
 	`, id, ownerID, key); err != nil {
 		t.Fatalf("seed media: %v", err)
+	}
+}
+
+func cleanupJourneySyntheticPreviewRows(t *testing.T, ctx context.Context, pool *pgxpool.Pool, ownerID, siteID, uploadGroupID, postID, postMediaID, memoryID, memoryMediaID string) {
+	t.Helper()
+	if _, err := pool.Exec(ctx, `DELETE FROM dive_memory_media WHERE memory_id = $1 OR media_id = NULLIF($2, '')::uuid`, memoryID, memoryMediaID); err != nil {
+		t.Fatalf("cleanup dive memory media: %v", err)
+	}
+	if memoryID != "" {
+		if _, err := pool.Exec(ctx, `DELETE FROM dive_memories WHERE id = $1`, memoryID); err != nil {
+			t.Fatalf("cleanup dive memories: %v", err)
+		}
+	}
+	if siteID != "" && ownerID != "" {
+		if _, err := pool.Exec(ctx, `DELETE FROM user_dive_sites WHERE user_id = $1 AND dive_site_id = $2`, ownerID, siteID); err != nil {
+			t.Fatalf("cleanup user_dive_sites: %v", err)
+		}
+	}
+	if postID != "" {
+		if _, err := pool.Exec(ctx, `DELETE FROM media_items WHERE post_id = $1`, postID); err != nil {
+			t.Fatalf("cleanup media items: %v", err)
+		}
+		if _, err := pool.Exec(ctx, `DELETE FROM media_posts WHERE id = $1`, postID); err != nil {
+			t.Fatalf("cleanup media posts: %v", err)
+		}
+	}
+	if uploadGroupID != "" {
+		if _, err := pool.Exec(ctx, `DELETE FROM media_upload_groups WHERE id = $1`, uploadGroupID); err != nil {
+			t.Fatalf("cleanup upload groups: %v", err)
+		}
+	}
+	if ownerID != "" {
+		if _, err := pool.Exec(ctx, `DELETE FROM journey_entries WHERE user_id = $1 AND (source_id = NULLIF($2, '') OR source_id = NULLIF($3, ''))`, ownerID, postID, memoryID); err != nil {
+			t.Fatalf("cleanup synthetic journey entries: %v", err)
+		}
+	}
+	if postMediaID != "" || memoryMediaID != "" {
+		mediaIDs := make([]string, 0, 2)
+		if postMediaID != "" {
+			mediaIDs = append(mediaIDs, postMediaID)
+		}
+		if memoryMediaID != "" {
+			mediaIDs = append(mediaIDs, memoryMediaID)
+		}
+		if _, err := pool.Exec(ctx, `DELETE FROM media_objects WHERE id = ANY($1::uuid[])`, mediaIDs); err != nil {
+			t.Fatalf("cleanup preview media objects: %v", err)
+		}
+	}
+	if siteID != "" {
+		if _, err := pool.Exec(ctx, `DELETE FROM dive_sites WHERE id = $1`, siteID); err != nil {
+			t.Fatalf("cleanup dive site: %v", err)
+		}
+	}
+	if ownerID != "" {
+		if _, err := pool.Exec(ctx, `DELETE FROM users WHERE id = $1`, ownerID); err != nil {
+			t.Fatalf("cleanup preview owner: %v", err)
+		}
 	}
 }

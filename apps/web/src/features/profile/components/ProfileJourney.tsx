@@ -36,7 +36,11 @@ import {
   useDeleteJourneyEntry,
   useUpdateJourneyEntry,
 } from "@/features/profile/hooks/journey-mutations";
-import { useProfileJourneyQuery } from "@/features/profile/hooks/queries";
+import { useMintedMediaMap } from "@/features/media/hooks/queries";
+import {
+  useProfileBadgesQuery,
+  useProfileJourneyQuery,
+} from "@/features/profile/hooks/queries";
 
 type ManualJourneyFormState = {
   title: string;
@@ -58,6 +62,7 @@ export function ProfileJourney({
   isOwner: boolean;
 }) {
   const { data, isLoading, isError } = useProfileJourneyQuery(username);
+  const badgesQuery = useProfileBadgesQuery(username);
   const createEntry = useCreateJourneyEntry(username);
   const updateEntry = useUpdateJourneyEntry(username);
   const deleteEntry = useDeleteJourneyEntry(username);
@@ -65,6 +70,9 @@ export function ProfileJourney({
   const [editingItem, setEditingItem] = useState<JourneyEntry | null>(null);
   const items = data?.items ?? [];
   const groups = groupJourneyEntries(items);
+  const previewMediaIds = collectJourneyPreviewMediaIds(items);
+  const previewUrls = useMintedMediaMap(previewMediaIds, "thumb", true);
+  const badgeImageMap = buildJourneyBadgeImageMap(badgesQuery.data);
 
   const isEditing = editingItem !== null;
   const dialogTitle = isEditing ? "Edit journey note" : "Add journey note";
@@ -94,7 +102,6 @@ export function ProfileJourney({
                 Add journey note
               </Button>
             ) : null}
-            <Badge variant="outline">{items.length}</Badge>
           </div>
         }
       />
@@ -176,6 +183,11 @@ export function ProfileJourney({
                     isOwner={isOwner}
                     isLast={index === group.items.length - 1}
                     isDeleting={deleteEntry.isPending}
+                    previewSrc={previewSourceForItem(
+                      item,
+                      previewUrls.urlMap,
+                      badgeImageMap,
+                    )}
                     onEdit={() => {
                       setEditingItem(item);
                       setDialogOpen(true);
@@ -197,6 +209,7 @@ function JourneyTimelineItem({
   isOwner,
   isLast,
   isDeleting,
+  previewSrc,
   onEdit,
   onDelete,
 }: {
@@ -204,6 +217,7 @@ function JourneyTimelineItem({
   isOwner: boolean;
   isLast: boolean;
   isDeleting: boolean;
+  previewSrc?: string;
   onEdit: () => void;
   onDelete: () => void;
 }) {
@@ -223,11 +237,10 @@ function JourneyTimelineItem({
       </div>
 
       <div
-        className={`space-y-1.5 border-b border-border/60 pb-3 ${
-          isLast ? "border-b-0 pb-0" : ""
-        }`}
+        className={`space-y-1.5 border-b border-border/60 pb-3 ${isLast ? "border-b-0 pb-0" : ""
+          }`}
       >
-        <div className="flex items-start justify-between gap-3">
+        <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-3">
           <div className="min-w-0 space-y-1">
             <div className="flex flex-wrap items-center gap-1.5">
               <Badge
@@ -238,36 +251,42 @@ function JourneyTimelineItem({
               </Badge>
             </div>
             <p className="text-[13px] font-medium leading-5">{item.title}</p>
-            {item.body ? (
+            {journeyBody(item) ? (
               <p className="text-[12px] leading-5 text-muted-foreground">
-                {item.body}
+                {journeyBody(item)}
               </p>
             ) : null}
           </div>
 
-          {canManageManual ? (
-            <div className="flex items-center gap-0.5">
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon-sm"
-                onClick={onEdit}
-              >
-                <Pencil className="h-3.5 w-3.5" />
-                <span className="sr-only">Edit journey entry</span>
-              </Button>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon-sm"
-                aria-label="Delete journey entry"
-                disabled={isDeleting}
-                onClick={onDelete}
-              >
-                <Trash2 className="h-3.5 w-3.5" />
-              </Button>
-            </div>
-          ) : null}
+          <div className="flex items-start gap-2">
+            {previewSrc ? (
+              <JourneyPreviewImage src={previewSrc} alt={item.title} />
+            ) : null}
+
+            {canManageManual ? (
+              <div className="flex items-center gap-0.5">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-sm"
+                  onClick={onEdit}
+                >
+                  <Pencil className="h-3.5 w-3.5" />
+                  <span className="sr-only">Edit journey entry</span>
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-sm"
+                  aria-label="Delete journey entry"
+                  disabled={isDeleting}
+                  onClick={onDelete}
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+            ) : null}
+          </div>
         </div>
 
         <div className="flex flex-wrap gap-x-2 gap-y-1 text-[11px] text-muted-foreground">
@@ -278,6 +297,19 @@ function JourneyTimelineItem({
         </div>
       </div>
     </li>
+  );
+}
+
+function JourneyPreviewImage({ src, alt }: { src: string; alt: string }) {
+  return (
+    <div className="h-[52px] w-[52px] shrink-0 overflow-hidden rounded-md">
+      <img
+        src={src}
+        alt={`${alt} preview`}
+        className="h-full w-full object-cover"
+        loading="lazy"
+      />
+    </div>
   );
 }
 
@@ -531,4 +563,69 @@ function todayInputValue() {
 
 function formatMediaCount(count: number) {
   return count === 1 ? "1 media item" : `${count} media items`;
+}
+
+function journeyBody(item: JourneyEntry) {
+  if (item.type === "map_milestone") {
+    return "";
+  }
+  return item.body ?? "";
+}
+
+function collectJourneyPreviewMediaIds(items: JourneyEntry[]) {
+  const ids = new Set<string>();
+  for (const item of items) {
+    const mediaId = item.coverMediaId || item.mediaIds?.[0];
+    if (mediaId) {
+      ids.add(mediaId);
+    }
+  }
+  return Array.from(ids);
+}
+
+function previewSourceForItem(
+  item: JourneyEntry,
+  mediaUrlMap: Map<string, string>,
+  badgeImageMap: Map<string, string>,
+) {
+  if (item.sourceType === "badge" && item.sourceId) {
+    const badgeImage = badgeImageMap.get(item.sourceId);
+    if (badgeImage) {
+      return badgeImage;
+    }
+  }
+
+  const mediaId = item.coverMediaId || item.mediaIds?.[0];
+  if (!mediaId) {
+    return undefined;
+  }
+  return mediaUrlMap.get(mediaId);
+}
+
+function buildJourneyBadgeImageMap(
+  badges:
+    | {
+      badges: Array<{ id: string; template: { badgeImageUrl?: string } }>;
+      autoStats: Array<{ id: string; template: { badgeImageUrl?: string } }>;
+    }
+    | undefined,
+) {
+  const map = new Map<string, string>();
+  for (const item of [
+    ...(badges?.badges ?? []),
+    ...(badges?.autoStats ?? []),
+  ]) {
+    const src = normalizeJourneyPreviewSrc(item.template.badgeImageUrl);
+    if (src) {
+      map.set(item.id, src);
+    }
+  }
+  return map;
+}
+
+function normalizeJourneyPreviewSrc(value?: string) {
+  const src = value?.trim() ?? "";
+  if (!src) return "";
+  if (src.startsWith("http://") || src.startsWith("https://")) return src;
+  return src.startsWith("/") ? src : `/${src}`;
 }

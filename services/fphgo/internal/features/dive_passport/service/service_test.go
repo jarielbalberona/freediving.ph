@@ -94,9 +94,13 @@ func (s *memoryStub) ListProfileMemories(_ context.Context, input memoriesservic
 
 type settingsStub struct {
 	input passportrepo.UpsertSettingsInput
+	row   passportrepo.Settings
 }
 
 func (s *settingsStub) GetSettings(context.Context, string) (passportrepo.Settings, error) {
+	if s.row.UserID != "" || s.row.ShowMap || s.row.ShowBadges || s.row.ShowJourney || s.row.ShowMemories || len(s.row.FeaturedBadgeIDs) > 0 {
+		return s.row, nil
+	}
 	return passportrepo.Settings{
 		ShowMap:      false,
 		ShowBadges:   true,
@@ -300,7 +304,7 @@ func TestProfilePassportIntegratesMapBadgesAndJourneyAsReadOnlyChildren(t *testi
 	}
 }
 
-func TestPassportSettingsDoNotHideOrMutateChildSourceData(t *testing.T) {
+func TestPassportSettingsHideSectionsFromPassportOutput(t *testing.T) {
 	profiles := &profileStub{
 		mapPreview: profilesservice.ProfileDiveMap{
 			VisitedSiteCount: 1,
@@ -335,14 +339,123 @@ func TestPassportSettingsDoNotHideOrMutateChildSourceData(t *testing.T) {
 	if passport.Settings.ShowMap || passport.Settings.ShowMemories {
 		t.Fatalf("test settings should disable presentation toggles, got %#v", passport.Settings)
 	}
-	if passport.MapPreview.State.Status != "ready" || passport.Stats.VisitedSiteCount != 1 {
-		t.Fatalf("settings must not mutate or erase map source data, got map=%#v stats=%#v", passport.MapPreview, passport.Stats)
+	if passport.MapPreview.State.Status != "hidden" || passport.MapPreview.State.Reason != "settings_hidden" || passport.Stats.VisitedSiteCount != 0 || len(passport.MapPreview.Markers) != 0 {
+		t.Fatalf("settings must hide map preview in Passport output, got map=%#v stats=%#v", passport.MapPreview, passport.Stats)
 	}
 	if passport.BadgeShowcase.State.Status != "ready" || passport.Stats.BadgeCount != 1 {
-		t.Fatalf("settings must not mutate or erase badge source data, got badges=%#v stats=%#v", passport.BadgeShowcase, passport.Stats)
+		t.Fatalf("visible badge preview should stay available, got badges=%#v stats=%#v", passport.BadgeShowcase, passport.Stats)
 	}
 	if passport.JourneyHighlights.State.Status != "ready" || passport.Stats.JourneyEntryCount != 1 {
-		t.Fatalf("settings must not mutate or erase journey source data, got journey=%#v stats=%#v", passport.JourneyHighlights, passport.Stats)
+		t.Fatalf("visible journey preview should stay available, got journey=%#v stats=%#v", passport.JourneyHighlights, passport.Stats)
+	}
+	if passport.Memories.State.Status != "hidden" || passport.Memories.State.Reason != "settings_hidden" || passport.Stats.MemoryCount != 0 || len(passport.Memories.Items) != 0 {
+		t.Fatalf("settings must hide memory preview in Passport output, got memories=%#v stats=%#v", passport.Memories, passport.Stats)
+	}
+}
+
+func TestPassportFeaturedBadgesUseStoredSelectionBeforeFallback(t *testing.T) {
+	profiles := &profileStub{
+		badges: profilesservice.ProfileBadges{
+			Badges: []profilesservice.UserBadge{
+				{
+					ID:                 "badge-1",
+					Template:           profilesservice.BadgeTemplate{Name: "Early Badge", Category: "experience", Rarity: "common"},
+					VerificationStatus: "unverified",
+					Visibility:         "public",
+					DisplayOrder:       4,
+				},
+				{
+					ID:                 "badge-2",
+					Template:           profilesservice.BadgeTemplate{Name: "Featured Badge", Category: "community_role", Rarity: "rare"},
+					VerificationStatus: "unverified",
+					Visibility:         "public",
+					DisplayOrder:       3,
+				},
+				{
+					ID:                 "badge-3",
+					Template:           profilesservice.BadgeTemplate{Name: "Top Cert", Category: "certification", Rarity: "legendary"},
+					VerificationStatus: "verified",
+					Visibility:         "public",
+					DisplayOrder:       2,
+				},
+				{
+					ID:                 "badge-4",
+					Template:           profilesservice.BadgeTemplate{Name: "Personal Best", Category: "personal_best", Rarity: "epic"},
+					VerificationStatus: "verified",
+					Visibility:         "public",
+					DisplayOrder:       1,
+				},
+			},
+		},
+	}
+	settingsRepo := &settingsStub{row: passportrepo.Settings{
+		UserID:           userID,
+		ShowMap:          true,
+		ShowBadges:       true,
+		ShowJourney:      true,
+		ShowMemories:     true,
+		FeaturedBadgeIDs: []string{"badge-2", "badge-4"},
+	}}
+	svc := New(profiles, &journeyStub{}, WithSettingsRepository(settingsRepo))
+
+	passport, err := svc.GetProfilePassport(context.Background(), "aiko", viewerID)
+	if err != nil {
+		t.Fatalf("get passport: %v", err)
+	}
+	if len(passport.BadgeShowcase.Badges) < 2 {
+		t.Fatalf("expected curated badge preview, got %#v", passport.BadgeShowcase.Badges)
+	}
+	if passport.BadgeShowcase.Badges[0].ID != "badge-2" || passport.BadgeShowcase.Badges[1].ID != "badge-4" {
+		t.Fatalf("featured badge selection must lead the preview, got %#v", passport.BadgeShowcase.Badges)
+	}
+}
+
+func TestPassportFeaturedBadgeFallbackUsesSignalInsteadOfInputOrder(t *testing.T) {
+	profiles := &profileStub{
+		badges: profilesservice.ProfileBadges{
+			Badges: []profilesservice.UserBadge{
+				{
+					ID:                 "badge-1",
+					Template:           profilesservice.BadgeTemplate{Name: "Starter", Category: "experience", Rarity: "common"},
+					VerificationStatus: "unverified",
+					Visibility:         "public",
+					DisplayOrder:       4,
+				},
+				{
+					ID:                 "badge-2",
+					Template:           profilesservice.BadgeTemplate{Name: "Club Role", Category: "community_role", Rarity: "rare"},
+					VerificationStatus: "unverified",
+					Visibility:         "public",
+					DisplayOrder:       3,
+				},
+				{
+					ID:                 "badge-3",
+					Template:           profilesservice.BadgeTemplate{Name: "Instructor Cert", Category: "certification", Rarity: "epic"},
+					VerificationStatus: "verified",
+					Visibility:         "public",
+					DisplayOrder:       2,
+				},
+				{
+					ID:                 "badge-4",
+					Template:           profilesservice.BadgeTemplate{Name: "Depth PB", Category: "personal_best", Rarity: "legendary"},
+					VerificationStatus: "verified",
+					Visibility:         "public",
+					DisplayOrder:       1,
+				},
+			},
+		},
+	}
+	svc := New(profiles, &journeyStub{})
+
+	passport, err := svc.GetProfilePassport(context.Background(), "aiko", viewerID)
+	if err != nil {
+		t.Fatalf("get passport: %v", err)
+	}
+	if len(passport.BadgeShowcase.Badges) == 0 {
+		t.Fatalf("expected fallback badge preview, got %#v", passport.BadgeShowcase.Badges)
+	}
+	if passport.BadgeShowcase.Badges[0].ID == "badge-1" {
+		t.Fatalf("fallback preview must not blindly follow the input order, got %#v", passport.BadgeShowcase.Badges)
 	}
 }
 

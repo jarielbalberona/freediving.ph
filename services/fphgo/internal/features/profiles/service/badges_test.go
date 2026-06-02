@@ -333,7 +333,10 @@ func TestBadgeCategorySummariesIncludeVisibleCategoriesAndAutoStat(t *testing.T)
 			{Template: profilesrepo.BadgeTemplate{Category: "community_role"}},
 		},
 		[]UserBadge{
-			{Template: BadgeTemplate{Category: "auto_stat"}},
+			{
+				Template:    BadgeTemplate{Category: "auto_stat"},
+				ValueNumber: float64Ptr(4),
+			},
 		},
 	)
 	if len(summaries) != 3 {
@@ -348,7 +351,11 @@ func TestBadgeCategorySummariesIncludeVisibleCategoriesAndAutoStat(t *testing.T)
 	if summaries[1].Category != "community_role" || summaries[1].Label != "Leadership Crest" || summaries[1].Count != 2 {
 		t.Fatalf("unexpected community role summary: %#v", summaries[1])
 	}
-	if summaries[2].Category != "auto_stat" || summaries[2].Label != "Explorer Stamp" || summaries[2].Count != 1 {
+	if summaries[2].Category != "auto_stat" || summaries[2].Label != "Explorer Stamp" || summaries[2].Count != 4 {
 		t.Fatalf("unexpected auto stat summary: %#v", summaries[2])
 	}
+}
+
+func float64Ptr(value float64) *float64 {
+	return &value
 }

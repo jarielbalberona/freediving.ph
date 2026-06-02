@@ -12,11 +12,13 @@ const journeySource = readFileSync(
 
 test("journey renderer uses compact timeline rows and dialog-based manual note editing", () => {
   assert.ok(journeySource.includes("Manual note"));
-  assert.ok(journeySource.includes("item.visibilityLabel ??"));
   assert.ok(journeySource.includes("Add journey note"));
   assert.ok(journeySource.includes("<Dialog"));
   assert.ok(journeySource.includes("Edit journey note"));
   assert.ok(journeySource.includes('visibility: "public"'));
+  assert.ok(journeySource.includes("useMintedMediaMap"));
+  assert.ok(journeySource.includes("useProfileBadgesQuery"));
+  assert.ok(journeySource.includes("JourneyPreviewImage"));
   assert.ok(!journeySource.includes("Generated milestone"));
   assert.ok(!journeySource.includes("proof-backed post"));
   assert.ok(

@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"math"
 	"net/http"
 	"strings"
 	"time"
@@ -1265,6 +1266,10 @@ func (s *Service) buildBadgeCategorySummaries(badges []profilesrepo.UserBadge, a
 	for _, badge := range autoStats {
 		cat := strings.TrimSpace(badge.Template.Category)
 		if cat == "" {
+			continue
+		}
+		if cat == "auto_stat" && badge.ValueNumber != nil {
+			counts[cat] += int64(math.Round(*badge.ValueNumber))
 			continue
 		}
 		counts[cat]++

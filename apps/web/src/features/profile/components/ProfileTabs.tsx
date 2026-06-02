@@ -28,6 +28,7 @@ import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ProfileBadges } from "@/features/profile/components/ProfileBadges";
 import { ProfileDiveMap } from "@/features/profile/components/ProfileDiveMap";
+import { ProfileDiveSpotHighlights } from "@/features/profile/components/ProfileDiveSpotHighlights";
 import { ProfileGrid } from "@/features/profile/components/ProfileGrid";
 import { ProfileJourney } from "@/features/profile/components/ProfileJourney";
 import { ProfilePassport } from "@/features/profile/components/ProfilePassport";
@@ -196,16 +197,21 @@ function ProfilePostsTab({
   "diving" | "isLoadingDiving" | "badges" | "autoStats" | "isOwner"
 >) {
   return (
-    <ProfileGrid
-      items={mediaItems}
-      isLoading={isLoadingMedia}
-      hasNextPage={hasNextPage}
-      isFetchingNextPage={isFetchingNextPage}
-      onLoadMore={onLoadMore}
-      username={username}
-      displayName={displayName}
-      avatarUrl={avatarUrl}
-    />
+    <div className="space-y-4">
+      <div className="hidden">
+        <ProfileDiveSpotHighlights items={mediaItems} />
+      </div>
+      <ProfileGrid
+        items={mediaItems}
+        isLoading={isLoadingMedia}
+        hasNextPage={hasNextPage}
+        isFetchingNextPage={isFetchingNextPage}
+        onLoadMore={onLoadMore}
+        username={username}
+        displayName={displayName}
+        avatarUrl={avatarUrl}
+      />
+    </div>
   );
 }
 

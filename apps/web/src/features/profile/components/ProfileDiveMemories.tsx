@@ -1,12 +1,26 @@
 "use client";
 
-import type { DiveMemory, DiveMemoryVisibility } from "@freediving.ph/types";
-import { MessageSquare, Plus, Save, Trash2 } from "lucide-react";
+import type {
+  DiveMemoriesPageMemoryAttachment,
+  DiveMemory,
+  DiveMemoryVisibility,
+} from "@freediving.ph/types";
+import Image from "next/image";
+import { EllipsisVertical, Pencil, Plus, Save, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  MomentPlayer,
+  momentPlaybackFromUrls,
+} from "@/features/media/components/MomentPlayer";
 import {
   useCreateDiveMemory,
   useDeleteDiveMemory,
@@ -37,12 +51,30 @@ export function ProfileDiveMemories({
   filterDiveSiteId,
   heading = "Dive Memories",
   items: providedItems,
+  showHeadingIcon = true,
+  headingClassName = "font-semibold text-base",
+  showCreateComposer = true,
+  showOwnerSummary = true,
+  attachmentsByMemoryId,
+  emptyOwnerTitle = "No memories yet.",
+  emptyOwnerDescription,
+  emptyVisitorTitle = "No visible memories yet.",
+  emptyVisitorDescription,
 }: {
   username: string;
   isOwner: boolean;
   filterDiveSiteId?: string;
   heading?: string;
   items?: DiveMemory[];
+  showHeadingIcon?: boolean;
+  headingClassName?: string;
+  showCreateComposer?: boolean;
+  showOwnerSummary?: boolean;
+  attachmentsByMemoryId?: Record<string, DiveMemoriesPageMemoryAttachment[]>;
+  emptyOwnerTitle?: string;
+  emptyOwnerDescription?: string;
+  emptyVisitorTitle?: string;
+  emptyVisitorDescription?: string;
 }) {
   const shouldLoadFromProfileQuery = providedItems === undefined;
   const { data, isLoading, isError } = useProfileDiveMemoriesQuery(
@@ -78,21 +110,18 @@ export function ProfileDiveMemories({
     >
       <div className="flex items-center justify-between gap-3">
         <div className="flex min-w-0 items-center gap-2">
-          <MessageSquare
-            aria-hidden="true"
-            className="h-4 w-4 text-muted-foreground"
-          />
-          <h2
-            id="profile-dive-memories-heading"
-            className="font-semibold text-base"
-          >
-            {heading}
-          </h2>
+          <div className="space-y-1">
+            <h2
+              id="profile-dive-memories-heading"
+              className={headingClassName}
+            >
+              {heading}
+            </h2>
+          </div>
         </div>
-        <Badge variant="outline">{items.length}</Badge>
       </div>
 
-      {isOwner ? (
+      {isOwner && showCreateComposer ? (
         <MemoryForm
           draft={draft}
           isPending={createMemory.isPending}
@@ -109,8 +138,8 @@ export function ProfileDiveMemories({
         />
       ) : null}
 
-      {isOwner ? (
-        <div className="rounded-lg border border-border/70 p-3 text-muted-foreground text-sm">
+      {isOwner && showOwnerSummary ? (
+        <div className="rounded-2xl bg-muted/30 px-3 py-2 text-muted-foreground text-sm">
           Tagged memory requests stay private to your account. Pending:{" "}
           <span className="font-medium text-foreground">{pendingTagCount}</span>
         </div>
@@ -120,19 +149,19 @@ export function ProfileDiveMemories({
       {isError ? <MemoryStatus title="Memories are unavailable" /> : null}
       {!isLoading && !isError && items.length === 0 ? (
         <MemoryStatus
-          title={isOwner ? "No memories yet." : "No visible memories yet."}
+          title={isOwner ? emptyOwnerTitle : emptyVisitorTitle}
+          description={
+            isOwner ? emptyOwnerDescription : emptyVisitorDescription
+          }
         />
       ) : null}
 
       {items.length > 0 ? (
-        <ol className="space-y-3">
+        <ol className="space-y-2">
           {items.map((memory) => {
             const editDraft = editing[memory.id];
             return (
-              <li
-                key={memory.id}
-                className="rounded-lg border border-border/70 p-3"
-              >
+              <li key={memory.id} className="border-border/50 border-b py-4 first:pt-0 last:border-b-0 last:pb-0">
                 {editDraft ? (
                   <MemoryForm
                     draft={editDraft}
@@ -164,6 +193,7 @@ export function ProfileDiveMemories({
                 ) : (
                   <MemoryItem
                     memory={memory}
+                    attachments={attachmentsByMemoryId?.[memory.id] ?? []}
                     isOwner={isOwner}
                     onEdit={() =>
                       setEditing((current) => ({
@@ -185,46 +215,133 @@ export function ProfileDiveMemories({
 
 function MemoryItem({
   memory,
+  attachments,
   isOwner,
   onEdit,
   onDelete,
 }: {
   memory: DiveMemory;
+  attachments: DiveMemoriesPageMemoryAttachment[];
   isOwner: boolean;
   onEdit: () => void;
   onDelete: () => void;
 }) {
+  const attachmentLabel = memory.body?.trim() || memory.title;
+  const hasAttachments = attachments.length > 0;
+
   return (
-    <div className="flex items-start justify-between gap-3">
-      <div className="min-w-0 space-y-1">
-        <p className="font-medium text-sm">{memory.title}</p>
-        {memory.body ? (
-          <p className="text-muted-foreground text-sm">{memory.body}</p>
-        ) : null}
-        <div className="flex flex-wrap gap-2 text-muted-foreground text-xs">
-          <span>{formatMemoryDate(memory.occurredAt)}</span>
-          <span>{memory.visibility}</span>
-          {memory.mediaIds.length > 0 ? (
-            <span>{memory.mediaIds.length} media</span>
+    <div className="space-y-3">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          {memory.body ? (
+            <p className="max-w-2xl text-muted-foreground text-sm leading-6">
+              {memory.body}
+            </p>
+          ) : memory.title ? (
+            <p className="max-w-2xl text-muted-foreground text-sm leading-6">
+              {memory.title}
+            </p>
           ) : null}
         </div>
+        {isOwner ? (
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              render={
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  aria-label="Open dive memory actions"
+                />
+              }
+            >
+                <EllipsisVertical className="h-4 w-4" />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={onEdit}>
+                <Pencil className="h-4 w-4" />
+                Edit
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                className="text-destructive focus:text-destructive"
+                onClick={onDelete}
+              >
+                <Trash2 className="h-4 w-4" />
+                Delete
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        ) : null}
       </div>
-      {isOwner ? (
-        <div className="flex shrink-0 gap-1">
-          <Button type="button" variant="outline" size="sm" onClick={onEdit}>
-            Edit
-          </Button>
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            aria-label="Delete dive memory"
-            onClick={onDelete}
-          >
-            <Trash2 className="h-4 w-4" />
-          </Button>
+
+      {!hasAttachments ? (
+        <p className="text-muted-foreground text-xs">
+          {formatMemoryDate(memory.occurredAt)}
+        </p>
+      ) : null}
+
+      {hasAttachments ? (
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
+          {attachments.map((attachment) => (
+            <MemoryAttachmentTile
+              key={attachment.id}
+              attachment={attachment}
+              title={attachmentLabel}
+            />
+          ))}
         </div>
       ) : null}
+
+      {hasAttachments ? (
+        <p className="text-muted-foreground text-xs">
+          {formatMemoryDate(memory.occurredAt)}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+function MemoryAttachmentTile({
+  attachment,
+  title,
+}: {
+  attachment: DiveMemoriesPageMemoryAttachment;
+  title: string;
+}) {
+  if (!attachment.media.url) return null;
+
+  if (attachment.media.type === "video") {
+    const playback = momentPlaybackFromUrls({
+      playbackUrl: attachment.media.url,
+    });
+    return (
+      <div className="aspect-[4/5] overflow-hidden rounded-2xl bg-muted/20">
+        <MomentPlayer
+          hlsUrl={playback.hlsUrl}
+          iframeUrl={playback.iframeUrl}
+          posterUrl={playback.posterUrl}
+          title={title}
+          muted
+          controls
+          playsInline
+          videoClassName="h-full w-full object-cover"
+          iframeClassName="h-full w-full"
+        />
+      </div>
+    );
+  }
+
+  return (
+    <div className="aspect-[4/5] overflow-hidden rounded-2xl bg-muted/20">
+      <Image
+        src={attachment.media.url}
+        alt={title}
+        width={attachment.media.width}
+        height={attachment.media.height}
+        sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
+        className="h-full w-full object-cover"
+        unoptimized
+      />
     </div>
   );
 }
@@ -246,7 +363,7 @@ function MemoryForm({
 }) {
   return (
     <form
-      className="space-y-2 rounded-lg border border-border/70 p-3"
+      className="space-y-2 rounded-2xl border border-border/70 bg-background/70 p-3"
       onSubmit={(event) => {
         event.preventDefault();
         if (isPending) return;
@@ -316,10 +433,21 @@ function MemoryForm({
   );
 }
 
-function MemoryStatus({ title }: { title: string }) {
+function MemoryStatus({
+  title,
+  description,
+}: {
+  title: string;
+  description?: string;
+}) {
   return (
-    <div className="rounded-lg border border-dashed p-4 text-muted-foreground text-sm">
-      {title}
+    <div className="rounded-2xl border border-dashed border-border/70 bg-muted/10 p-4 text-sm">
+      <div className="space-y-1">
+        <p className="font-medium text-foreground">{title}</p>
+        {description ? (
+          <p className="text-muted-foreground">{description}</p>
+        ) : null}
+      </div>
     </div>
   );
 }

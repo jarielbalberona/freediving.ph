@@ -217,20 +217,27 @@ test("Profile experience modules are routed to separate source-owned tabs", asyn
   assert.match(map, /title="Dive Memories"/);
   assert.match(
     map,
-    /subtitle="Proof-backed visited sites with location-scoped memory pages\."/,
+    /subtitle="Visited sites with location-scoped memories\."/,
   );
   assert.match(passport, /<ProfileTabHeader/);
   assert.match(passport, /id="profile-passport-heading"/);
   assert.match(passport, /title="Passport"/);
   assert.match(
     passport,
-    /subtitle="A compact overview of your dive history and visibility settings\."/,
+    /subtitle="A snapshot of this diver's milestones, places, and story\."/,
   );
   assert.match(passport, /isOwner \? \(/);
+  assert.match(passport, /<PassportCustomizeDialog/);
+  assert.match(passport, /Customize Passport/);
+  assert.match(passport, /eyebrow="Public Showcase"/);
+  assert.match(passport, /title="Highlights"/);
+  assert.match(passport, /title="Dive footprint"/);
+  assert.match(passport, /title="Recent story"/);
   assert.match(
     passport,
-    /<PassportSettingsPanel\s+username=\{username\}\s+settings=\{passport\.settings\}\s+\/>/,
+    /<PassportCustomizeDialog\s+username=\{username\}\s+settings=\{passport\.settings\}\s+\/>/,
   );
+  assert.doesNotMatch(passport, /<PassportSettingsPanel/);
   assert.match(journey, /<ProfileTabHeader/);
   assert.match(journey, /title="Journey"/);
   assert.match(

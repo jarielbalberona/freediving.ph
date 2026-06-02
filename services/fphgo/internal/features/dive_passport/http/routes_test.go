@@ -124,6 +124,67 @@ func TestPublicPassportRoutePassesViewerIdentityWhenPresent(t *testing.T) {
 	}
 }
 
+func TestPublicPassportRouteReturnsHiddenSectionsWhenSettingsDisableThem(t *testing.T) {
+	now := time.Date(2026, 5, 31, 9, 0, 0, 0, time.UTC)
+	svc := &serviceStub{
+		passport: passportservice.Passport{
+			Profile: profilesservice.ProfileView{
+				UserID:      "550e8400-e29b-41d4-a716-446655440300",
+				Username:    "aiko",
+				DisplayName: "Aiko",
+				CreatedAt:   now,
+			},
+			MapPreview: passportservice.MapPreview{
+				State: passportservice.SectionState{Status: "hidden", Reason: "settings_hidden"},
+			},
+			BadgeShowcase: passportservice.BadgeShowcase{
+				State: passportservice.SectionState{Status: "ready"},
+				Badges: []profilesservice.UserBadge{{
+					ID: "badge-1",
+					Template: profilesservice.BadgeTemplate{
+						Name:     "Featured Badge",
+						Category: "experience",
+					},
+				}},
+			},
+			JourneyHighlights: passportservice.JourneyHighlights{
+				State: passportservice.SectionState{Status: "hidden", Reason: "settings_hidden"},
+			},
+			RecentMedia: passportservice.RecentMedia{
+				State: passportservice.SectionState{Status: "empty", Reason: "no_data"},
+			},
+			Memories: passportservice.MemoryPreview{
+				State: passportservice.SectionState{Status: "hidden", Reason: "settings_hidden"},
+			},
+			Settings: passportservice.Settings{
+				ShowMap:      false,
+				ShowBadges:   true,
+				ShowJourney:  false,
+				ShowMemories: false,
+			},
+		},
+	}
+	router := PublicRoutes(New(svc, validatex.New()))
+
+	req := httptest.NewRequest(http.MethodGet, "/aiko/passport", nil)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d body=%s", rec.Code, rec.Body.String())
+	}
+	var payload ProfilePassportResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if payload.Passport.MapPreview.State.Status != "hidden" || payload.Passport.MapPreview.State.Reason != "settings_hidden" {
+		t.Fatalf("expected hidden map preview, got %#v", payload.Passport.MapPreview)
+	}
+	if payload.Passport.Memories.State.Status != "hidden" || payload.Passport.JourneyHighlights.State.Status != "hidden" {
+		t.Fatalf("expected hidden story sections, got memories=%#v journey=%#v", payload.Passport.Memories, payload.Passport.JourneyHighlights)
+	}
+}
+
 func TestPassportSettingsRoutesAreOwnerScoped(t *testing.T) {
 	router := Routes(New(&serviceStub{}, validatex.New()))
 

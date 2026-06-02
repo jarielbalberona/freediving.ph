@@ -219,6 +219,144 @@ Replace manual area and coordinate entry with a map-pin flow in `apps/web`, and 
 
 ## 11. Outcomes And Follow-Ups
 
+---
+
+# ExecPlan: Dive Passport Contract And Showcase Hardening
+
+## 1. Title
+
+Dive Passport contract shaping, featured badge curation, and showcase UI hardening
+
+## 2. Objective
+
+Turn Dive Passport into a real public showcase by making backend section visibility affect returned section states, using stored featured badge selections for curation, removing the fake recent-media surface from the main UI, and moving owner customization out of the inline body.
+
+## 3. Scope
+
+- `services/fphgo/internal/features/dive_passport/*`
+- `apps/web/src/features/profile/components/ProfilePassport.tsx`
+- related Passport contract tests in `apps/web/test`
+- targeted shared contract tests in `packages/types/test` only if the exported API shape changes
+
+## 4. Constraints And Non-Goals
+
+- Do not touch `apps/api`; it is legacy.
+- Keep Passport read-only with respect to child domains.
+- Do not expand Passport into a second full Badges, Journey, Dive Map, or Dive Memories surface.
+- Do not invent a real recent-media backend in this pass; hide the stub instead.
+
+## 5. Acceptance Criteria
+
+- Passport service emits hidden section states when owner settings disable public sections.
+- Visitor-facing Passport UI does not render hidden sections.
+- Featured badge preview honors `featuredBadgeIds`, with a sensible fallback when none are selected.
+- The fake Media card is removed from the main showcase.
+- Owner customization moves into a dialog; visitors do not see it.
+- Targeted Go and web contract tests cover the changed behavior.
+
+## 6. Repo Evidence
+
+- Current Passport service always composes all child previews and never emits `hidden`: `services/fphgo/internal/features/dive_passport/service/service.go`
+- Current Passport UI uses six equal-weight cards and an inline settings fieldset: `apps/web/src/features/profile/components/ProfilePassport.tsx`
+- Existing settings persistence already stores `featured_badge_ids`: `services/fphgo/internal/features/dive_passport/repo/queries/passport.sql`
+- Existing contract tests already assert Passport source boundaries and profile-tab wiring: `services/fphgo/internal/features/dive_passport/service/service_test.go`, `apps/web/test/profile-passport-contract.test.mjs`, `apps/web/test/profile-diving-tabs-contract.test.mjs`
+
+## 7. Risks And Rollback
+
+- Risk: hiding sections in the service could accidentally zero out source-owned stats or leak hidden child data.
+- Risk: featured badge ranking could become arbitrary if fallback scoring is sloppy.
+- Risk: UI contract tests are source-text based, so structural refactors can break them even when behavior is correct.
+- Rollback Notes:
+  - Revert Passport service section-shaping changes independently from the web UI if hidden-state behavior proves wrong.
+  - Revert the dialog UI while keeping backend visibility fixes if the owner customization shell causes regressions.
+
+## 8. Milestones
+
+### Milestone 1: Service shaping and curation
+- Goal:
+  - make section visibility settings affect section states and preview payloads
+  - apply featured badge curation
+- Inputs/Dependencies:
+  - `services/fphgo/internal/features/dive_passport/service/service.go`
+  - `services/fphgo/internal/features/dive_passport/service/service_test.go`
+  - `services/fphgo/internal/features/dive_passport/http/routes_test.go`
+- Changes:
+  - emit `hidden/settings_hidden` for disabled sections
+  - suppress hidden section preview data in public output
+  - prioritize `featuredBadgeIds`, then high-signal badge fallback
+  - keep recent media explicitly hidden/stubbed
+- Validation Commands:
+  - `cd services/fphgo && go test ./internal/features/dive_passport/...`
+- Expected Evidence:
+  - service tests prove hidden sections and featured badge selection
+- Rollback Notes:
+  - revert only Passport service + tests if behavior is wrong
+- Status: `done`
+
+### Milestone 2: Showcase UI hardening
+- Goal:
+  - replace the equal-card dashboard with a compact showcase shell
+  - move settings into a dialog
+- Inputs/Dependencies:
+  - `apps/web/src/features/profile/components/ProfilePassport.tsx`
+  - `apps/web/src/components/ui/dialog.tsx`
+  - `apps/web/test/profile-passport-contract.test.mjs`
+  - `apps/web/test/profile-diving-tabs-contract.test.mjs`
+- Changes:
+  - hero/highlights/footprint/story hierarchy
+  - hide stubbed media section
+  - owner-only `Customize Passport` dialog
+- Validation Commands:
+  - `pnpm --filter @freediving.ph/web test -- profile-passport-contract.test.mjs profile-diving-tabs-contract.test.mjs`
+  - `pnpm --filter @freediving.ph/web type-check`
+  - `pnpm --filter @freediving.ph/web lint`
+- Expected Evidence:
+  - tests assert visitor/owner control separation and no inline settings fieldset
+- Rollback Notes:
+  - revert UI files only if dialog/showcase structure is rejected
+- Status: `done`
+
+### Milestone 3: Verification and cleanup
+- Goal:
+  - run narrow checks, fix drift, and confirm no formatting issues
+- Inputs/Dependencies:
+  - completed service and UI changes
+- Changes:
+  - targeted verification only
+- Validation Commands:
+  - `cd services/fphgo && go test ./internal/features/dive_passport/...`
+  - `pnpm --filter @freediving.ph/web test -- profile-passport-contract.test.mjs profile-diving-tabs-contract.test.mjs`
+  - `pnpm --filter @freediving.ph/web type-check`
+  - `pnpm --filter @freediving.ph/web lint`
+  - `pnpm --filter @freediving.ph/types test`
+  - `git diff --check`
+- Expected Evidence:
+  - all targeted checks pass or residual unrelated failures are explicitly called out
+- Rollback Notes:
+  - revert only the failing milestone seam; avoid touching unrelated worktree state
+- Status: `done`
+
+## 9. Verification Plan
+
+- `cd services/fphgo && go test ./internal/features/dive_passport/...`
+- `pnpm --filter @freediving.ph/web test -- profile-passport-contract.test.mjs profile-diving-tabs-contract.test.mjs`
+- `pnpm --filter @freediving.ph/web type-check`
+- `pnpm --filter @freediving.ph/web lint`
+- `pnpm --filter @freediving.ph/types test`
+- `git diff --check`
+
+## 10. Progress Log
+
+- 2026-06-02: Read the implementation brief, current Passport service/UI/tests, and ExecPlan policy. Confirmed the main gaps are hidden-state shaping, unused `featuredBadgeIds`, fake `recentMedia`, and inline owner settings.
+- 2026-06-02: Updated the Passport service so `showMap`, `showBadges`, `showJourney`, and `showMemories` shape the aggregate output through `hidden/settings_hidden` states instead of leaking disabled sections into the public showcase.
+- 2026-06-02: Wired `featuredBadgeIds` into badge preview curation, added fallback ranking for stronger badges, and kept Passport read-only with respect to child domains.
+- 2026-06-02: Rebuilt the web Passport surface into a hero/highlights/footprint/story hierarchy, removed the dead Media card, and moved owner controls into a `Customize Passport` dialog.
+- 2026-06-02: Verified `go test ./internal/features/dive_passport/...`, `pnpm --filter @freediving.ph/web type-check`, `pnpm --filter @freediving.ph/web lint`, `pnpm --filter @freediving.ph/types test`, and `git diff --check`. The repo-level `pnpm --filter @freediving.ph/web test -- ...` form still ran the full suite and hit unrelated pre-existing failures, so the Passport verification used the exact `node --test` file list instead.
+
+## 11. Outcomes And Follow-Ups
+
+- Real recent media preview is still not implemented in `services/fphgo`; the UI now stops pretending otherwise, but a future pass still needs a genuine media reader if product wants that section back.
+
 # ExecPlan: Badge Earned Date And Journey Ordering
 
 ## 1. Title

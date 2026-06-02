@@ -60,6 +60,8 @@ import { cn } from "@/lib/utils";
 type ProfileMediaComposerProps = {
   username: string;
   onPublished?: () => void;
+  lockedDiveSite?: ExploreSiteCard | null;
+  cancelHref?: string;
 };
 
 type UploadStatus = "queued" | "uploading" | "uploaded" | "failed";
@@ -94,6 +96,8 @@ const ALLOWED_MIME_TYPES = new Set([
 export function ProfileMediaComposer({
   username,
   onPublished,
+  lockedDiveSite = null,
+  cancelHref,
 }: ProfileMediaComposerProps) {
   const router = useRouter();
   const inputRef = useRef<HTMLInputElement | null>(null);
@@ -103,7 +107,7 @@ export function ProfileMediaComposer({
   const [photos, setPhotos] = useState<ComposerPhoto[]>([]);
   const [activeIndex, setActiveIndex] = useState(0);
   const [selectedDiveSite, setSelectedDiveSite] =
-    useState<ExploreSiteCard | null>(null);
+    useState<ExploreSiteCard | null>(lockedDiveSite);
   const [isDragging, setIsDragging] = useState(false);
   const [videoFile, setVideoFile] = useState<File | null>(null);
   const [videoDurationSeconds, setVideoDurationSeconds] = useState<
@@ -158,6 +162,17 @@ export function ProfileMediaComposer({
     !momentBusy &&
     videoValidationError === null &&
     videoDurationSeconds !== null;
+
+  useEffect(() => {
+    if (!lockedDiveSite) return;
+    setSelectedDiveSite(lockedDiveSite);
+    form.setValue("diveSiteId", lockedDiveSite.id, {
+      shouldDirty: false,
+      shouldValidate: true,
+      shouldTouch: false,
+    });
+    form.clearErrors("diveSiteId");
+  }, [form, lockedDiveSite]);
 
   const handleVideoDurationChange = useCallback(
     (nextDuration: number | null) => {
@@ -427,7 +442,9 @@ export function ProfileMediaComposer({
             Publish to @{username}
           </p>
           <p className="text-xs leading-5 text-muted-foreground">
-            Location is required. Caption applies to Photos and Moments.
+            {lockedDiveSite
+              ? `Posting to ${formatDiveSiteOptionLabel(lockedDiveSite)}. Caption applies to Photos and Moments.`
+              : "Location is required. Caption applies to Photos and Moments."}
           </p>
         </div>
 
@@ -682,35 +699,57 @@ export function ProfileMediaComposer({
         </Tabs>
 
         <div className="space-y-4">
-          <FormField
-            control={form.control}
-            name="diveSiteId"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Dive site</FormLabel>
-                <FormControl>
-                  <DiveSiteCombobox
-                    value={field.value}
-                    valueLabel={
-                      selectedDiveSite
-                        ? formatDiveSiteOptionLabel(selectedDiveSite)
-                        : undefined
-                    }
-                    limit={12}
-                    onValueChange={(value, site) => {
-                      field.onChange(value);
-                      setSelectedDiveSite(site);
-                    }}
-                    disabled={createPostMutation.isPending || momentBusy}
-                  />
-                </FormControl>
-                <FormDescription>
-                  Choose from the approved FPH dive-site directory.
-                </FormDescription>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+          {lockedDiveSite ? (
+            <FormField
+              control={form.control}
+              name="diveSiteId"
+              render={({ field }) => (
+                <FormItem>
+                  <input type="hidden" {...field} value={field.value} />
+                  <FormLabel>Dive site</FormLabel>
+                  <div className="rounded-xl border border-border/70 bg-muted/20 px-3 py-2">
+                    <p className="text-sm font-medium text-foreground">
+                      {formatDiveSiteOptionLabel(lockedDiveSite)}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      This post is locked to the current dive page.
+                    </p>
+                  </div>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          ) : (
+            <FormField
+              control={form.control}
+              name="diveSiteId"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Dive site</FormLabel>
+                  <FormControl>
+                    <DiveSiteCombobox
+                      value={field.value}
+                      valueLabel={
+                        selectedDiveSite
+                          ? formatDiveSiteOptionLabel(selectedDiveSite)
+                          : undefined
+                      }
+                      limit={12}
+                      onValueChange={(value, site) => {
+                        field.onChange(value);
+                        setSelectedDiveSite(site);
+                      }}
+                      disabled={createPostMutation.isPending || momentBusy}
+                    />
+                  </FormControl>
+                  <FormDescription>
+                    Choose from the approved FPH dive-site directory.
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          )}
 
           <FormField
             control={form.control}
@@ -755,7 +794,9 @@ export function ProfileMediaComposer({
           <Button
             type="button"
             variant="outline"
-            onClick={() => router.push(getProfileRoute(username))}
+            onClick={() =>
+              router.push(cancelHref ?? getProfileRoute(username))
+            }
           >
             Cancel
           </Button>
