@@ -57,6 +57,7 @@ type BadgeFormState = {
   badgeId: string | null;
   badgeCategory: BadgeCategory | "";
   badgeTemplateId: string;
+  earnedDate: string;
   valueNumber: string;
   valueMinutes: string;
   valueSeconds: string;
@@ -64,13 +65,13 @@ type BadgeFormState = {
   referenceLabel: string;
   referenceValue: string;
   proofMediaId: string;
-  visibility: "public" | "private";
 };
 
 const initialForm: BadgeFormState = {
   badgeId: null,
   badgeCategory: "",
   badgeTemplateId: "",
+  earnedDate: todayInputValue(),
   valueNumber: "",
   valueMinutes: "",
   valueSeconds: "",
@@ -78,7 +79,6 @@ const initialForm: BadgeFormState = {
   referenceLabel: "",
   referenceValue: "",
   proofMediaId: "",
-  visibility: "public",
 };
 
 export default function BadgeManagementPage() {
@@ -289,13 +289,13 @@ function BadgeFormFields({
               ...current,
               badgeCategory: (value as BadgeCategory) ?? "",
               badgeTemplateId: "",
+              earnedDate: current.earnedDate || todayInputValue(),
               valueNumber: "",
               valueMinutes: "",
               valueSeconds: "",
               valueText: "",
               referenceLabel: "",
               referenceValue: "",
-              visibility: "public",
             }))
           }
           items={Object.keys(groupedTemplates).map((category) => ({
@@ -366,7 +366,22 @@ function BadgeFormFields({
         <BadgeValueFields template={template} form={form} setForm={setForm} />
       ) : null}
 
-      {form.badgeCategory !== "personal_best" ? (
+      <div className="grid gap-2">
+        <Label htmlFor="earnedDate">Earned date</Label>
+        <Input
+          id="earnedDate"
+          type="date"
+          value={form.earnedDate}
+          onChange={(event) =>
+            setForm((current) => ({
+              ...current,
+              earnedDate: event.target.value,
+            }))
+          }
+        />
+      </div>
+
+      {form.badgeCategory === "certification" ? (
         <>
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="grid gap-2">
@@ -397,31 +412,6 @@ function BadgeFormFields({
                 }
               />
             </div>
-          </div>
-
-          <div className="grid gap-2">
-            <Label>Visibility</Label>
-            <Select
-              value={form.visibility}
-              onValueChange={(value) =>
-                setForm((current) => ({
-                  ...current,
-                  visibility: value === "private" ? "private" : "public",
-                }))
-              }
-              items={[
-                { value: "public", label: "Public" },
-                { value: "private", label: "Private" },
-              ]}
-            >
-              <SelectTrigger className="w-full">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="public">Public</SelectItem>
-                <SelectItem value="private">Private</SelectItem>
-              </SelectContent>
-            </Select>
           </div>
         </>
       ) : null}
@@ -675,13 +665,17 @@ function buildPayload(
   form: BadgeFormState,
   template: BadgeTemplate,
 ): UpsertUserBadgeRequest | null {
+  if (!form.earnedDate) {
+    toast.error("Select an earned date.");
+    return null;
+  }
   const payload: UpsertUserBadgeRequest = {
     badgeTemplateId: form.badgeTemplateId,
+    earnedDate: form.earnedDate,
     referenceLabel: form.referenceLabel.trim() || undefined,
     referenceValue: form.referenceValue.trim() || undefined,
     proofMediaId: form.proofMediaId || undefined,
-    visibility:
-      template.category === "personal_best" ? "public" : form.visibility,
+    visibility: "public",
   };
 
   if (template.valueType === "time") {
@@ -747,6 +741,7 @@ function formFromBadge(badge: UserBadge): BadgeFormState {
     badgeId: badge.id,
     badgeCategory: badge.template.category,
     badgeTemplateId: badge.template.id,
+    earnedDate: badge.earnedDate ?? dateInputValueFromTimestamp(badge.earnedAt),
     valueNumber: badge.valueNumber?.toString() ?? "",
     valueMinutes: badge.valueMinutes?.toString() ?? "",
     valueSeconds: badge.valueSeconds?.toString() ?? "",
@@ -754,6 +749,15 @@ function formFromBadge(badge: UserBadge): BadgeFormState {
     referenceLabel: badge.referenceLabel ?? "",
     referenceValue: badge.referenceValue ?? "",
     proofMediaId: badge.proofMediaId ?? "",
-    visibility: badge.visibility ?? "public",
   };
+}
+
+function todayInputValue() {
+  const local = new Date(Date.now() - new Date().getTimezoneOffset() * 60000);
+  return local.toISOString().slice(0, 10);
+}
+
+function dateInputValueFromTimestamp(value?: string) {
+  if (!value) return todayInputValue();
+  return value.slice(0, 10);
 }

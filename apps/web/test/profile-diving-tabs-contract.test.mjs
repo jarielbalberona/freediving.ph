@@ -43,7 +43,7 @@ test("/[username] profile has the required profile experience tabs with Posts as
   assert.match(tabs, /"posts"/);
   assert.match(tabs, /"badges"/);
   assert.match(tabs, /"diving"/);
-  assert.match(tabs, /"dive-map"/);
+  assert.match(tabs, /"dive-memories"/);
   assert.match(tabs, /"dive-journey"/);
   assert.match(tabs, /"dive-passport"/);
   assert.match(tabs, /: "posts"/);
@@ -51,7 +51,7 @@ test("/[username] profile has the required profile experience tabs with Posts as
   assert.match(tabs, /label: "Posts"/);
   assert.match(tabs, /label: "Badges"/);
   assert.match(tabs, /label: "Diving"/);
-  assert.match(tabs, /label: "Dive Map"/);
+  assert.match(tabs, /label: "Dive Memories"/);
   assert.match(tabs, /label: "Dive Journey"/);
   assert.match(tabs, /label: "Dive Passport"/);
   assert.match(tabs, /aria-label=\{label\}/);
@@ -139,13 +139,13 @@ test("Profile experience modules are routed to separate source-owned tabs", asyn
   assert.match(tabs, /<TabsContent value="posts" className="px-1">/);
   assert.match(tabs, /<TabsContent value="badges" className="px-2">/);
   assert.match(tabs, /<TabsContent value="diving" className="px-2">/);
-  assert.match(tabs, /<TabsContent value="dive-map" className="px-2">/);
+  assert.match(tabs, /<TabsContent value="dive-memories" className="px-2">/);
   assert.match(tabs, /<TabsContent value="dive-journey" className="px-2">/);
   assert.match(tabs, /<TabsContent value="dive-passport" className="px-2">/);
 
   const badgeTabIndex = tabs.indexOf('value="badges"');
   const divingTabIndex = tabs.indexOf('value="diving"');
-  const mapTabIndex = tabs.indexOf('value="dive-map"');
+  const mapTabIndex = tabs.indexOf('value="dive-memories"');
   const journeyTabIndex = tabs.indexOf('value="dive-journey"');
   const passportTabIndex = tabs.indexOf('value="dive-passport"');
   assert.ok(
@@ -214,10 +214,10 @@ test("Profile experience modules are routed to separate source-owned tabs", asyn
   );
   assert.doesNotMatch(badges, /https:\/\/cdn\.freediving\.ph/);
   assert.match(map, /<ProfileTabHeader/);
-  assert.match(map, /title="Dive Map"/);
+  assert.match(map, /title="Dive Memories"/);
   assert.match(
     map,
-    /subtitle="Sites you've visited and the memories tied to them\."/,
+    /subtitle="Proof-backed visited sites with location-scoped memory pages\."/,
   );
   assert.match(passport, /<ProfileTabHeader/);
   assert.match(passport, /id="profile-passport-heading"/);

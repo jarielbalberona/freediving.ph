@@ -9,21 +9,22 @@ type JourneyEntryResponse struct {
 }
 
 type JourneyEntry struct {
-	ID           string   `json:"id"`
-	UserID       string   `json:"userId"`
-	Type         string   `json:"type"`
-	Title        string   `json:"title"`
-	Body         string   `json:"body,omitempty"`
-	DiveSiteID   string   `json:"diveSiteId,omitempty"`
-	SourceType   string   `json:"sourceType,omitempty"`
-	SourceID     string   `json:"sourceId,omitempty"`
-	CoverMediaID string   `json:"coverMediaId,omitempty"`
-	MediaIDs     []string `json:"mediaIds"`
-	Visibility   string   `json:"visibility"`
-	State        string   `json:"state"`
-	OccurredAt   string   `json:"occurredAt"`
-	CreatedAt    string   `json:"createdAt"`
-	UpdatedAt    string   `json:"updatedAt"`
+	ID              string   `json:"id"`
+	UserID          string   `json:"userId"`
+	Type            string   `json:"type"`
+	Title           string   `json:"title"`
+	Body            string   `json:"body,omitempty"`
+	DiveSiteID      string   `json:"diveSiteId,omitempty"`
+	SourceType      string   `json:"sourceType,omitempty"`
+	SourceID        string   `json:"sourceId,omitempty"`
+	CoverMediaID    string   `json:"coverMediaId,omitempty"`
+	MediaIDs        []string `json:"mediaIds"`
+	Visibility      string   `json:"visibility"`
+	VisibilityLabel string   `json:"visibilityLabel,omitempty"`
+	State           string   `json:"state"`
+	OccurredAt      string   `json:"occurredAt"`
+	CreatedAt       string   `json:"createdAt"`
+	UpdatedAt       string   `json:"updatedAt"`
 }
 
 type UpsertManualJourneyEntryRequest struct {

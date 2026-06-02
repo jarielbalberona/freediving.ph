@@ -41,6 +41,7 @@ export interface JourneyEntry {
   mediaIds: string[];
   taggedUsers?: JourneyTaggedUser[];
   visibility: JourneyEntryVisibility;
+  visibilityLabel?: string;
   state: JourneyEntryState;
   occurredAt: string;
   createdAt: string;

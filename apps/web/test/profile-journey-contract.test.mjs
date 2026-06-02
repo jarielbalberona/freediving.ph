@@ -10,7 +10,25 @@ const journeySource = readFileSync(
   "utf8",
 );
 
-test("journey renderer tolerates null media ids", () => {
-  assert.ok(journeySource.includes("const mediaIds = item.mediaIds ?? [];"));
-  assert.ok(journeySource.includes("{mediaIds.length > 0 ? ("));
+test("journey renderer uses compact timeline rows and dialog-based manual note editing", () => {
+  assert.ok(journeySource.includes("Manual note"));
+  assert.ok(journeySource.includes("item.visibilityLabel ??"));
+  assert.ok(journeySource.includes("Add journey note"));
+  assert.ok(journeySource.includes("<Dialog"));
+  assert.ok(journeySource.includes("Edit journey note"));
+  assert.ok(journeySource.includes('visibility: "public"'));
+  assert.ok(!journeySource.includes("Generated milestone"));
+  assert.ok(!journeySource.includes("proof-backed post"));
+  assert.ok(
+    !journeySource.includes(
+      "Write the milestone headline, then add the story, date, and audience",
+    ),
+  );
+  assert.ok(!journeySource.includes("SelectTrigger"));
+  assert.ok(
+    journeySource.includes(
+      'placeholder="Add context that belongs in your Journey',
+    ),
+  );
+  assert.ok(journeySource.includes('aria-label="Delete journey entry"'));
 });

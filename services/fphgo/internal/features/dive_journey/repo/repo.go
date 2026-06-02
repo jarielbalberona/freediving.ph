@@ -3,6 +3,9 @@ package repo
 import (
 	"context"
 	"errors"
+	"fmt"
+	"sort"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -44,23 +47,24 @@ type JourneyOwner struct {
 }
 
 type JourneyEntry struct {
-	ID           string
-	UserID       string
-	Type         string
-	Title        string
-	Body         string
-	DiveSiteID   string
-	SourceType   string
-	SourceID     string
-	CoverMediaID string
-	Visibility   string
-	State        string
-	OccurredAt   time.Time
-	HiddenAt     *time.Time
-	DeletedAt    *time.Time
-	CreatedAt    time.Time
-	UpdatedAt    time.Time
-	MediaIDs     []string
+	ID              string
+	UserID          string
+	Type            string
+	Title           string
+	Body            string
+	DiveSiteID      string
+	SourceType      string
+	SourceID        string
+	CoverMediaID    string
+	Visibility      string
+	VisibilityLabel string
+	State           string
+	OccurredAt      time.Time
+	HiddenAt        *time.Time
+	DeletedAt       *time.Time
+	CreatedAt       time.Time
+	UpdatedAt       time.Time
+	MediaIDs        []string
 }
 
 type ListProfileInput struct {
@@ -117,7 +121,7 @@ func (r *Repo) ListForProfile(ctx context.Context, input ListProfileInput) ([]Jo
 		TargetUserID:  toUUID(input.TargetUserID),
 		ViewerIsSelf:  input.ViewerIsSelf,
 		ViewerFollows: input.ViewerFollows,
-		ResultLimit:   input.Limit,
+		ResultLimit:   50,
 	})
 	if err != nil {
 		return nil, err
@@ -126,10 +130,365 @@ func (r *Repo) ListForProfile(ctx context.Context, input ListProfileInput) ([]Jo
 	for _, row := range rows {
 		out = append(out, mapEntry(row))
 	}
+	synthetic, err := r.listSyntheticEntries(ctx, input)
+	if err != nil {
+		return nil, err
+	}
+	out = append(out, synthetic...)
+	sortJourneyEntries(out)
+	if limit := int(input.Limit); limit > 0 && len(out) > limit {
+		out = out[:limit]
+	}
 	if err := r.hydrateMedia(ctx, out); err != nil {
 		return nil, err
 	}
 	return out, nil
+}
+
+func (r *Repo) listSyntheticEntries(ctx context.Context, input ListProfileInput) ([]JourneyEntry, error) {
+	loaders := []func(context.Context, ListProfileInput) ([]JourneyEntry, error){
+		r.listSyntheticMapMilestones,
+		r.listSyntheticMediaMilestones,
+		r.listSyntheticBadgeMilestones,
+		r.listSyntheticMemoryMilestones,
+	}
+	out := make([]JourneyEntry, 0, 16)
+	for _, loader := range loaders {
+		items, err := loader(ctx, input)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, items...)
+	}
+	return out, nil
+}
+
+func (r *Repo) listSyntheticMapMilestones(ctx context.Context, input ListProfileInput) ([]JourneyEntry, error) {
+	rows, err := r.db.Query(ctx, `
+		SELECT
+			uds.user_id::text,
+			uds.dive_site_id::text,
+			ds.name,
+			uds.media_post_count,
+			uds.first_visited_at,
+			uds.created_at,
+			uds.updated_at,
+			uds.visibility
+		FROM user_dive_sites uds
+		JOIN dive_sites ds ON ds.id = uds.dive_site_id
+		WHERE uds.user_id = $1
+		  AND ds.moderation_state = 'approved'
+		  AND (
+		    uds.visibility = 'public'
+		    OR ($2::boolean AND uds.visibility = 'private')
+		    OR (($2::boolean OR $3::boolean) AND uds.visibility = 'members')
+		  )
+		  AND NOT EXISTS (
+		    SELECT 1
+		    FROM journey_entries je
+		    WHERE je.user_id = uds.user_id
+		      AND je.type = 'map_milestone'
+		      AND je.source_type = 'dive_map'
+		      AND je.source_id = uds.dive_site_id::text
+		  )
+	`, toUUID(input.TargetUserID), input.ViewerIsSelf, input.ViewerFollows)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	out := make([]JourneyEntry, 0)
+	for rows.Next() {
+		var (
+			userID         string
+			diveSiteID     string
+			siteName       string
+			mediaPostCount int32
+			occurredAt     time.Time
+			createdAt      time.Time
+			updatedAt      time.Time
+			visibility     string
+		)
+		if err := rows.Scan(&userID, &diveSiteID, &siteName, &mediaPostCount, &occurredAt, &createdAt, &updatedAt, &visibility); err != nil {
+			return nil, err
+		}
+		out = append(out, JourneyEntry{
+			ID:              "synthetic:map:" + diveSiteID,
+			UserID:          userID,
+			Type:            "map_milestone",
+			Title:           "Visited " + siteName,
+			Body:            formatProofCount(int(mediaPostCount)),
+			DiveSiteID:      diveSiteID,
+			SourceType:      "dive_map",
+			SourceID:        diveSiteID,
+			Visibility:      journeyVisibilityFromSource(visibility),
+			VisibilityLabel: visibilityLabelFromSource(visibility),
+			State:           "active",
+			OccurredAt:      occurredAt.UTC(),
+			CreatedAt:       createdAt.UTC(),
+			UpdatedAt:       updatedAt.UTC(),
+		})
+	}
+	return out, rows.Err()
+}
+
+func (r *Repo) listSyntheticMediaMilestones(ctx context.Context, input ListProfileInput) ([]JourneyEntry, error) {
+	rows, err := r.db.Query(ctx, `
+		SELECT
+			mp.id::text,
+			mp.author_app_user_id::text,
+			mp.dive_site_id::text,
+			ds.name,
+			COALESCE(NULLIF(mp.post_caption, ''), ''),
+			COUNT(mi.id)::int,
+			mp.created_at,
+			mp.created_at,
+			mp.updated_at,
+			uds.visibility
+		FROM media_posts mp
+		JOIN user_dive_sites uds
+		  ON uds.user_id = mp.author_app_user_id
+		 AND uds.dive_site_id = mp.dive_site_id
+		JOIN dive_sites ds ON ds.id = mp.dive_site_id
+		JOIN media_items mi ON mi.post_id = mp.id
+		WHERE mp.author_app_user_id = $1
+		  AND mp.dive_site_id IS NOT NULL
+		  AND mp.deleted_at IS NULL
+		  AND ds.moderation_state = 'approved'
+		  AND mi.author_app_user_id = mp.author_app_user_id
+		  AND mi.dive_site_id = mp.dive_site_id
+		  AND mi.status = 'active'
+		  AND mi.processing_status = 'ready'
+		  AND mi.moderation_status = 'approved'
+		  AND mi.deleted_at IS NULL
+		  AND mp.id <> uds.first_post_id
+		  AND (
+		    uds.visibility = 'public'
+		    OR ($2::boolean AND uds.visibility = 'private')
+		    OR (($2::boolean OR $3::boolean) AND uds.visibility = 'members')
+		  )
+		  AND NOT EXISTS (
+		    SELECT 1
+		    FROM journey_entries je
+		    WHERE je.user_id = mp.author_app_user_id
+		      AND je.type = 'media'
+		      AND je.source_type = 'media'
+		      AND je.source_id = mp.id::text
+		  )
+		GROUP BY mp.id, mp.author_app_user_id, mp.dive_site_id, ds.name, mp.post_caption, mp.created_at, mp.updated_at, uds.visibility
+		ORDER BY mp.created_at DESC, mp.id DESC
+		LIMIT 30
+	`, toUUID(input.TargetUserID), input.ViewerIsSelf, input.ViewerFollows)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	out := make([]JourneyEntry, 0)
+	for rows.Next() {
+		var (
+			postID     string
+			userID     string
+			diveSiteID string
+			siteName   string
+			caption    string
+			mediaCount int32
+			occurredAt time.Time
+			createdAt  time.Time
+			updatedAt  time.Time
+			visibility string
+		)
+		if err := rows.Scan(&postID, &userID, &diveSiteID, &siteName, &caption, &mediaCount, &occurredAt, &createdAt, &updatedAt, &visibility); err != nil {
+			return nil, err
+		}
+		out = append(out, JourneyEntry{
+			ID:              "synthetic:media:" + postID,
+			UserID:          userID,
+			Type:            "media",
+			Title:           "Posted from " + siteName,
+			Body:            coalesceJourneyBody(caption, formatMediaCount(int(mediaCount))),
+			DiveSiteID:      diveSiteID,
+			SourceType:      "media",
+			SourceID:        postID,
+			Visibility:      journeyVisibilityFromSource(visibility),
+			VisibilityLabel: visibilityLabelFromSource(visibility),
+			State:           "active",
+			OccurredAt:      occurredAt.UTC(),
+			CreatedAt:       createdAt.UTC(),
+			UpdatedAt:       updatedAt.UTC(),
+		})
+	}
+	return out, rows.Err()
+}
+
+func (r *Repo) listSyntheticBadgeMilestones(ctx context.Context, input ListProfileInput) ([]JourneyEntry, error) {
+	rows, err := r.db.Query(ctx, `
+		SELECT
+			ub.id::text,
+			ub.user_id::text,
+			bt.name,
+			bt.category,
+			COALESCE(bt.unit, ''),
+			bt.value_type,
+			COALESCE(ub.value_text, ''),
+			COALESCE(ub.value_number::text, ''),
+			COALESCE(ub.value_minutes, -1),
+			COALESCE(ub.value_seconds, -1),
+			COALESCE(ub.reference_label, ''),
+			COALESCE(ub.earned_date::timestamp, ub.earned_at, ub.created_at),
+			ub.created_at,
+			ub.updated_at,
+			ub.visibility
+		FROM user_badges ub
+		JOIN badge_templates bt ON bt.id = ub.badge_template_id
+		WHERE ub.user_id = $1
+		  AND (
+		    ub.visibility = 'public'
+		    OR ($2::boolean AND ub.visibility = 'private')
+		  )
+		  AND NOT EXISTS (
+		    SELECT 1
+		    FROM journey_entries je
+		    WHERE je.user_id = ub.user_id
+		      AND je.type = 'badge'
+		      AND je.source_type = 'badge'
+		      AND je.source_id = ub.id::text
+		  )
+		ORDER BY COALESCE(ub.earned_date::timestamp, ub.earned_at, ub.created_at) DESC, ub.id DESC
+		LIMIT 30
+	`, toUUID(input.TargetUserID), input.ViewerIsSelf)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	out := make([]JourneyEntry, 0)
+	for rows.Next() {
+		var (
+			badgeID        string
+			userID         string
+			name           string
+			category       string
+			unit           string
+			valueType      string
+			valueText      string
+			valueNumber    string
+			valueMinutes   int32
+			valueSeconds   int32
+			referenceLabel string
+			occurredAt     time.Time
+			createdAt      time.Time
+			updatedAt      time.Time
+			visibility     string
+		)
+		if err := rows.Scan(
+			&badgeID,
+			&userID,
+			&name,
+			&category,
+			&unit,
+			&valueType,
+			&valueText,
+			&valueNumber,
+			&valueMinutes,
+			&valueSeconds,
+			&referenceLabel,
+			&occurredAt,
+			&createdAt,
+			&updatedAt,
+			&visibility,
+		); err != nil {
+			return nil, err
+		}
+		out = append(out, JourneyEntry{
+			ID:              "synthetic:badge:" + badgeID,
+			UserID:          userID,
+			Type:            "badge",
+			Title:           badgeJourneyTitle(category, name),
+			Body:            badgeJourneyBody(valueType, valueText, valueNumber, unit, valueMinutes, valueSeconds, referenceLabel),
+			SourceType:      "badge",
+			SourceID:        badgeID,
+			Visibility:      visibility,
+			VisibilityLabel: visibilityLabelFromSource(visibility),
+			State:           "active",
+			OccurredAt:      occurredAt.UTC(),
+			CreatedAt:       createdAt.UTC(),
+			UpdatedAt:       updatedAt.UTC(),
+		})
+	}
+	return out, rows.Err()
+}
+
+func (r *Repo) listSyntheticMemoryMilestones(ctx context.Context, input ListProfileInput) ([]JourneyEntry, error) {
+	rows, err := r.db.Query(ctx, `
+		SELECT
+			dm.id::text,
+			dm.author_user_id::text,
+			dm.dive_site_id::text,
+			dm.title,
+			dm.body,
+			dm.occurred_at,
+			dm.created_at,
+			dm.updated_at,
+			dm.visibility
+		FROM dive_memories dm
+		WHERE dm.author_user_id = $1
+		  AND dm.deleted_at IS NULL
+		  AND (
+		    dm.visibility = 'public'
+		    OR (($2::boolean OR $3::boolean) AND dm.visibility = 'followers')
+		    OR ($2::boolean AND dm.visibility IN ('private', 'tagged'))
+		  )
+		  AND NOT EXISTS (
+		    SELECT 1
+		    FROM journey_entries je
+		    WHERE je.user_id = dm.author_user_id
+		      AND je.type = 'memory'
+		      AND je.source_type = 'memory'
+		      AND je.source_id = dm.id::text
+		  )
+		ORDER BY dm.occurred_at DESC, dm.id DESC
+		LIMIT 30
+	`, toUUID(input.TargetUserID), input.ViewerIsSelf, input.ViewerFollows)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	out := make([]JourneyEntry, 0)
+	for rows.Next() {
+		var (
+			memoryID   string
+			userID     string
+			diveSiteID string
+			title      string
+			body       string
+			occurredAt time.Time
+			createdAt  time.Time
+			updatedAt  time.Time
+			visibility string
+		)
+		if err := rows.Scan(&memoryID, &userID, &diveSiteID, &title, &body, &occurredAt, &createdAt, &updatedAt, &visibility); err != nil {
+			return nil, err
+		}
+		out = append(out, JourneyEntry{
+			ID:              "synthetic:memory:" + memoryID,
+			UserID:          userID,
+			Type:            "memory",
+			Title:           title,
+			Body:            body,
+			DiveSiteID:      diveSiteID,
+			SourceType:      "memory",
+			SourceID:        memoryID,
+			Visibility:      journeyVisibilityFromMemory(visibility),
+			VisibilityLabel: visibilityLabelFromMemory(visibility),
+			State:           "active",
+			OccurredAt:      occurredAt.UTC(),
+			CreatedAt:       createdAt.UTC(),
+			UpdatedAt:       updatedAt.UTC(),
+		})
+	}
+	return out, rows.Err()
 }
 
 func (r *Repo) CreateManual(ctx context.Context, input UpsertManualInput) (JourneyEntry, error) {
@@ -310,22 +669,23 @@ func (r *Repo) hydrateMedia(ctx context.Context, entries []JourneyEntry) error {
 
 func mapEntry(row divejourneysqlc.JourneyEntry) JourneyEntry {
 	return JourneyEntry{
-		ID:           uuidString(row.ID),
-		UserID:       uuidString(row.UserID),
-		Type:         row.Type,
-		Title:        row.Title,
-		Body:         row.Body,
-		DiveSiteID:   uuidString(row.DiveSiteID),
-		SourceType:   stringPtr(row.SourceType),
-		SourceID:     stringPtr(row.SourceID),
-		CoverMediaID: uuidString(row.CoverMediaID),
-		Visibility:   row.Visibility,
-		State:        row.State,
-		OccurredAt:   timeValue(row.OccurredAt),
-		HiddenAt:     timePtr(row.HiddenAt),
-		DeletedAt:    timePtr(row.DeletedAt),
-		CreatedAt:    timeValue(row.CreatedAt),
-		UpdatedAt:    timeValue(row.UpdatedAt),
+		ID:              uuidString(row.ID),
+		UserID:          uuidString(row.UserID),
+		Type:            row.Type,
+		Title:           row.Title,
+		Body:            row.Body,
+		DiveSiteID:      uuidString(row.DiveSiteID),
+		SourceType:      stringPtr(row.SourceType),
+		SourceID:        stringPtr(row.SourceID),
+		CoverMediaID:    uuidString(row.CoverMediaID),
+		Visibility:      row.Visibility,
+		VisibilityLabel: visibilityLabelFromSource(row.Visibility),
+		State:           row.State,
+		OccurredAt:      timeValue(row.OccurredAt),
+		HiddenAt:        timePtr(row.HiddenAt),
+		DeletedAt:       timePtr(row.DeletedAt),
+		CreatedAt:       timeValue(row.CreatedAt),
+		UpdatedAt:       timeValue(row.UpdatedAt),
 	}
 }
 
@@ -376,4 +736,121 @@ func timePtr(value pgtype.Timestamptz) *time.Time {
 	}
 	t := value.Time
 	return &t
+}
+
+func sortJourneyEntries(items []JourneyEntry) {
+	sort.SliceStable(items, func(i, j int) bool {
+		if items[i].OccurredAt.Equal(items[j].OccurredAt) {
+			return items[i].ID > items[j].ID
+		}
+		return items[i].OccurredAt.After(items[j].OccurredAt)
+	})
+}
+
+func visibilityLabelFromSource(value string) string {
+	switch value {
+	case "public":
+		return "Public"
+	case "followers":
+		return "Followers"
+	case "members":
+		return "Members"
+	default:
+		return "Private"
+	}
+}
+
+func journeyVisibilityFromSource(value string) string {
+	switch value {
+	case "public", "followers", "private":
+		return value
+	case "members":
+		return "followers"
+	default:
+		return "private"
+	}
+}
+
+func journeyVisibilityFromMemory(value string) string {
+	switch value {
+	case "public", "followers":
+		return value
+	default:
+		return "private"
+	}
+}
+
+func visibilityLabelFromMemory(value string) string {
+	if value == "followers" {
+		return "Followers"
+	}
+	if value == "public" {
+		return "Public"
+	}
+	return "Private"
+}
+
+func formatProofCount(count int) string {
+	if count <= 1 {
+		return "1 proof-backed post"
+	}
+	return fmt.Sprintf("%d proof-backed posts", count)
+}
+
+func formatMediaCount(count int) string {
+	if count <= 1 {
+		return "1 media item"
+	}
+	return fmt.Sprintf("%d media items", count)
+}
+
+func coalesceJourneyBody(values ...string) string {
+	for _, value := range values {
+		if value != "" {
+			return value
+		}
+	}
+	return ""
+}
+
+func badgeJourneyTitle(category, name string) string {
+	switch category {
+	case "personal_best":
+		return "Logged a new PB: " + name
+	case "certification":
+		return "Added " + name
+	default:
+		return "Earned " + name
+	}
+}
+
+func badgeJourneyBody(
+	valueType string,
+	valueText string,
+	valueNumber string,
+	unit string,
+	valueMinutes int32,
+	valueSeconds int32,
+	referenceLabel string,
+) string {
+	switch valueType {
+	case "text":
+		if valueText != "" {
+			return valueText
+		}
+	case "number":
+		if valueNumber != "" {
+			return strings.TrimSpace(valueNumber + unit)
+		}
+	case "duration":
+		if valueMinutes >= 0 || valueSeconds >= 0 {
+			minutes := max(valueMinutes, 0)
+			seconds := max(valueSeconds, 0)
+			return fmt.Sprintf("%02d:%02d", minutes, seconds)
+		}
+	}
+	if referenceLabel != "" {
+		return referenceLabel
+	}
+	return ""
 }

@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -29,6 +30,7 @@ type profileService interface {
 	GetProfileDivingByUsername(ctx context.Context, username, viewerUserID string) (profilesservice.ProfileDiving, error)
 	GetProfileDiveMapByUsername(ctx context.Context, username, viewerUserID string) (profilesservice.ProfileDiveMap, error)
 	GetProfileDiveMapSiteByUsername(ctx context.Context, username, diveSiteID, viewerUserID string) (profilesservice.ProfileDiveMapSiteDetail, error)
+	GetProfileDiveMemoriesPageByUsername(ctx context.Context, username, diveSiteSlug, viewerUserID string) (profilesservice.ProfileDiveMemoriesPage, error)
 	GetMyBadges(ctx context.Context, actorID string) (profilesservice.ProfileBadges, error)
 	GetProfileBadgesByUsername(ctx context.Context, username string) (profilesservice.ProfileBadges, error)
 	CreateUserBadge(ctx context.Context, input profilesservice.UpsertUserBadgeInput) (profilesservice.UserBadge, error)
@@ -368,6 +370,118 @@ func (h *Handlers) GetProfileDivingByUsername(w http.ResponseWriter, r *http.Req
 	})
 }
 
+func (h *Handlers) GetProfileDiveMemoriesPageByUsername(w http.ResponseWriter, r *http.Request) {
+	username := chi.URLParam(r, "username")
+	viewerID := actorIDIfPresent(r)
+
+	result, err := h.service.GetProfileDiveMemoriesPageByUsername(
+		r.Context(),
+		username,
+		chi.URLParam(r, "diveSiteSlug"),
+		viewerID,
+	)
+	if err != nil {
+		httpx.Error(w, middleware.RequestIDFromContext(r.Context()), err)
+		return
+	}
+
+	proofItems := make([]DiveMemoriesPageProofItem, 0, len(result.ProofItems))
+	for _, item := range result.ProofItems {
+		proofItems = append(proofItems, DiveMemoriesPageProofItem{
+			ID:            item.ID,
+			Kind:          item.Kind,
+			PostID:        item.PostID,
+			MediaItemID:   item.MediaItemID,
+			MediaObjectID: item.MediaObjectID,
+			Media: DiveMemoriesPageMediaAsset{
+				ID:       item.Media.ID,
+				URL:      item.Media.URL,
+				MimeType: item.Media.MimeType,
+				Width:    item.Media.Width,
+				Height:   item.Media.Height,
+				Type:     item.Media.Type,
+			},
+			Caption:    item.Caption,
+			CreatedAt:  item.CreatedAt.UTC().Format(time.RFC3339),
+			ProofLabel: item.ProofLabel,
+		})
+	}
+
+	memoryItems := make([]DiveMemoriesPageMemoryItem, 0, len(result.MemoryItems))
+	for _, item := range result.MemoryItems {
+		attachments := make([]DiveMemoriesPageMemoryAttachment, 0, len(item.Attachments))
+		for _, attachment := range item.Attachments {
+			attachments = append(attachments, DiveMemoriesPageMemoryAttachment{
+				ID:            attachment.ID,
+				MediaObjectID: attachment.MediaObjectID,
+				Media: DiveMemoriesPageMediaAsset{
+					ID:       attachment.Media.ID,
+					URL:      attachment.Media.URL,
+					MimeType: attachment.Media.MimeType,
+					Width:    attachment.Media.Width,
+					Height:   attachment.Media.Height,
+					Type:     attachment.Media.Type,
+				},
+				CreatedAt: attachment.CreatedAt.UTC().Format(time.RFC3339),
+			})
+		}
+		memoryItems = append(memoryItems, DiveMemoriesPageMemoryItem{
+			ID:   item.ID,
+			Kind: item.Kind,
+			Author: DiveMemoriesPageMemoryAuthor{
+				UserID:      item.Author.UserID,
+				Username:    item.Author.Username,
+				DisplayName: item.Author.DisplayName,
+				AvatarURL:   item.Author.AvatarURL,
+			},
+			Title:           item.Title,
+			Body:            item.Body,
+			Visibility:      item.Visibility,
+			OccurredAt:      item.OccurredAt.UTC().Format(time.RFC3339),
+			CreatedAt:       item.CreatedAt.UTC().Format(time.RFC3339),
+			UpdatedAt:       item.UpdatedAt.UTC().Format(time.RFC3339),
+			Attachments:     attachments,
+			ViewerCanEdit:   item.ViewerCanEdit,
+			ViewerCanDelete: item.ViewerCanDelete,
+		})
+	}
+
+	httpx.JSON(w, http.StatusOK, ProfileDiveMemoriesPageResponse{
+		Profile: DiveMemoriesPageProfile{
+			ID:            result.Profile.ID,
+			Username:      result.Profile.Username,
+			DisplayName:   result.Profile.DisplayName,
+			AvatarURL:     result.Profile.AvatarURL,
+			ViewerIsOwner: result.Profile.ViewerIsOwner,
+		},
+		Site: DiveMemoriesPageSite{
+			DiveSiteID: result.Site.DiveSiteID,
+			Slug:       result.Site.Slug,
+			Name:       result.Site.Name,
+			Area:       result.Site.Area,
+			Latitude:   result.Site.Latitude,
+			Longitude:  result.Site.Longitude,
+		},
+		Entry: DiveMemoriesPageEntry{
+			FirstProofAt:            result.Entry.FirstProofAt.UTC().Format(time.RFC3339),
+			LastProofAt:             result.Entry.LastProofAt.UTC().Format(time.RFC3339),
+			LastUpdatedAt:           result.Entry.LastUpdatedAt.UTC().Format(time.RFC3339),
+			ProofCount:              result.Entry.ProofCount,
+			MemoryCount:             result.Entry.MemoryCount,
+			MediaCount:              result.Entry.MediaCount,
+			TextCount:               result.Entry.TextCount,
+			ViewerCanCreateMemory:   result.Entry.ViewerCanCreateMemory,
+			ViewerCanManageMemories: result.Entry.ViewerCanManageMemories,
+		},
+		ProofItems:  proofItems,
+		MemoryItems: memoryItems,
+		Limits: DiveMemoriesPageLimits{
+			ProofItems:  result.Limits.ProofItems,
+			MemoryItems: result.Limits.MemoryItems,
+		},
+	})
+}
+
 func (h *Handlers) GetProfileDiveMapByUsername(w http.ResponseWriter, r *http.Request) {
 	username := chi.URLParam(r, "username")
 	viewerID := actorIDIfPresent(r)
@@ -475,6 +589,13 @@ func formatOptionalTime(value *time.Time) string {
 	return value.UTC().Format(time.RFC3339)
 }
 
+func formatOptionalDate(value *time.Time) string {
+	if value == nil {
+		return ""
+	}
+	return value.UTC().Format("2006-01-02")
+}
+
 func actorIDIfPresent(r *http.Request) string {
 	identity, ok := middleware.CurrentIdentity(r.Context())
 	if !ok {
@@ -503,6 +624,14 @@ func profileToDTO(input profilesservice.Profile) Profile {
 }
 
 func badgeRequestToService(actorID, badgeID string, req UpsertUserBadgeRequest) profilesservice.UpsertUserBadgeInput {
+	var earnedDate *time.Time
+	if req.EarnedDate != nil && strings.TrimSpace(*req.EarnedDate) != "" {
+		parsed, err := time.Parse("2006-01-02", strings.TrimSpace(*req.EarnedDate))
+		if err == nil {
+			date := parsed.UTC()
+			earnedDate = &date
+		}
+	}
 	return profilesservice.UpsertUserBadgeInput{
 		ActorID:         actorID,
 		BadgeID:         badgeID,
@@ -514,7 +643,7 @@ func badgeRequestToService(actorID, badgeID string, req UpsertUserBadgeRequest) 
 		ReferenceLabel:  req.ReferenceLabel,
 		ReferenceValue:  req.ReferenceValue,
 		ProofMediaID:    req.ProofMediaID,
-		EarnedAt:        req.EarnedAt,
+		EarnedDate:      earnedDate,
 		Visibility:      req.Visibility,
 		DisplayOrder:    req.DisplayOrder,
 		MetadataJSON:    req.MetadataJSON,
@@ -599,7 +728,7 @@ func userBadgeToDTO(input profilesservice.UserBadge) UserBadge {
 		IsSystemVerified:    input.IsSystemVerified,
 		SourceType:          input.SourceType,
 		SourceID:            input.SourceID,
-		EarnedAt:            formatOptionalTime(input.EarnedAt),
+		EarnedDate:          formatOptionalDate(input.EarnedDate),
 		Visibility:          input.Visibility,
 		DisplayOrder:        input.DisplayOrder,
 		Rarity:              input.Rarity,

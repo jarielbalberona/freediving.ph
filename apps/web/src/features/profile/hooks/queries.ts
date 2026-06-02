@@ -51,7 +51,10 @@ export const useProfileDiveMapSiteQuery = (
   const normalizedSiteId = siteId ?? "";
 
   return useQuery({
-    queryKey: queryKeys.profile.diveMapSite(normalizedUsername, normalizedSiteId),
+    queryKey: queryKeys.profile.diveMapSite(
+      normalizedUsername,
+      normalizedSiteId,
+    ),
     enabled: enabled && Boolean(normalizedUsername && normalizedSiteId),
     queryFn: () =>
       profileApi.getProfileDiveMapSite(normalizedUsername, normalizedSiteId),
@@ -106,6 +109,30 @@ export const useProfileDiveMemoriesQuery = (
     queryKey: queryKeys.profile.diveMemories(normalizedUsername),
     enabled: enabled && Boolean(normalizedUsername),
     queryFn: () => profileApi.getProfileDiveMemories(normalizedUsername),
+    staleTime: 5 * 60_000,
+    placeholderData: keepPreviousData,
+  });
+};
+
+export const useProfileDiveMemoriesPageQuery = (
+  username: string,
+  diveSiteSlug: string,
+  enabled = true,
+) => {
+  const normalizedUsername = normalizeUsername(username);
+  const normalizedDiveSiteSlug = diveSiteSlug.trim().toLowerCase();
+
+  return useQuery({
+    queryKey: queryKeys.profile.diveMemoriesPage(
+      normalizedUsername,
+      normalizedDiveSiteSlug,
+    ),
+    enabled: enabled && Boolean(normalizedUsername && normalizedDiveSiteSlug),
+    queryFn: () =>
+      profileApi.getProfileDiveMemoriesPage(
+        normalizedUsername,
+        normalizedDiveSiteSlug,
+      ),
     staleTime: 5 * 60_000,
     placeholderData: keepPreviousData,
   });

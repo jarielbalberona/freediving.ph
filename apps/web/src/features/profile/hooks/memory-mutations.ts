@@ -20,6 +20,9 @@ const invalidateMemoryReads = (
     queryKey: queryKeys.profile.diveMemories(normalizedUsername),
   });
   void queryClient.invalidateQueries({
+    queryKey: queryKeys.profile.diveMemoriesPages(normalizedUsername),
+  });
+  void queryClient.invalidateQueries({
     queryKey: queryKeys.profile.diveMap(normalizedUsername),
   });
   void queryClient.invalidateQueries({

@@ -83,6 +83,11 @@ export const routes = {
         `/v1/profiles/${toPathId(username)}/journey`,
       profileDiveMemories: (username: string | number) =>
         `/v1/profiles/${toPathId(username)}/dive-memories`,
+      profileDiveMemoriesPage: (
+        username: string | number,
+        diveSiteSlug: string | number,
+      ) =>
+        `/v1/profiles/${toPathId(username)}/dive-memories/${toPathId(diveSiteSlug)}`,
       myPassportSettings: () => "/v1/me/passport/settings",
       myJourney: () => "/v1/me/journey",
       myJourneyEntry: (entryId: string | number) =>

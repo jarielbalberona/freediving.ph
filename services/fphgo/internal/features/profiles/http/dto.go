@@ -1,7 +1,5 @@
 package http
 
-import "time"
-
 type ProfileResponse struct {
 	Profile Profile `json:"profile"`
 }
@@ -24,6 +22,15 @@ type ProfileDiveMapSiteResponse struct {
 	Marker   ProfileDiveMapMarker       `json:"marker"`
 	Media    []ProfileDiveMapProofMedia `json:"media"`
 	Memories []ProfileDiveMapMemory     `json:"memories"`
+}
+
+type ProfileDiveMemoriesPageResponse struct {
+	Profile     DiveMemoriesPageProfile      `json:"profile"`
+	Site        DiveMemoriesPageSite         `json:"site"`
+	Entry       DiveMemoriesPageEntry        `json:"entry"`
+	ProofItems  []DiveMemoriesPageProofItem  `json:"proofItems"`
+	MemoryItems []DiveMemoriesPageMemoryItem `json:"memoryItems"`
+	Limits      DiveMemoriesPageLimits       `json:"limits"`
 }
 
 type ProfileBadgesResponse struct {
@@ -178,6 +185,90 @@ type ProfileDiveMapMemory struct {
 	UpdatedAt    string   `json:"updatedAt"`
 }
 
+type DiveMemoriesPageProfile struct {
+	ID            string `json:"id"`
+	Username      string `json:"username"`
+	DisplayName   string `json:"displayName,omitempty"`
+	AvatarURL     string `json:"avatarUrl,omitempty"`
+	ViewerIsOwner bool   `json:"viewerIsOwner"`
+}
+
+type DiveMemoriesPageSite struct {
+	DiveSiteID string   `json:"diveSiteId"`
+	Slug       string   `json:"slug"`
+	Name       string   `json:"name"`
+	Area       string   `json:"area"`
+	Latitude   *float64 `json:"latitude,omitempty"`
+	Longitude  *float64 `json:"longitude,omitempty"`
+}
+
+type DiveMemoriesPageEntry struct {
+	FirstProofAt            string `json:"firstProofAt"`
+	LastProofAt             string `json:"lastProofAt"`
+	LastUpdatedAt           string `json:"lastUpdatedAt"`
+	ProofCount              int32  `json:"proofCount"`
+	MemoryCount             int32  `json:"memoryCount"`
+	MediaCount              int32  `json:"mediaCount"`
+	TextCount               int32  `json:"textCount"`
+	ViewerCanCreateMemory   bool   `json:"viewerCanCreateMemory"`
+	ViewerCanManageMemories bool   `json:"viewerCanManageMemories"`
+}
+
+type DiveMemoriesPageMediaAsset struct {
+	ID       string `json:"id"`
+	URL      string `json:"url"`
+	MimeType string `json:"mimeType"`
+	Width    int32  `json:"width"`
+	Height   int32  `json:"height"`
+	Type     string `json:"type"`
+}
+
+type DiveMemoriesPageProofItem struct {
+	ID            string                     `json:"id"`
+	Kind          string                     `json:"kind"`
+	PostID        string                     `json:"postId"`
+	MediaItemID   string                     `json:"mediaItemId"`
+	MediaObjectID string                     `json:"mediaObjectId"`
+	Media         DiveMemoriesPageMediaAsset `json:"media"`
+	Caption       string                     `json:"caption,omitempty"`
+	CreatedAt     string                     `json:"createdAt"`
+	ProofLabel    string                     `json:"proofLabel"`
+}
+
+type DiveMemoriesPageMemoryAttachment struct {
+	ID            string                     `json:"id"`
+	MediaObjectID string                     `json:"mediaObjectId"`
+	Media         DiveMemoriesPageMediaAsset `json:"media"`
+	CreatedAt     string                     `json:"createdAt"`
+}
+
+type DiveMemoriesPageMemoryAuthor struct {
+	UserID      string `json:"userId"`
+	Username    string `json:"username"`
+	DisplayName string `json:"displayName,omitempty"`
+	AvatarURL   string `json:"avatarUrl,omitempty"`
+}
+
+type DiveMemoriesPageMemoryItem struct {
+	ID              string                             `json:"id"`
+	Kind            string                             `json:"kind"`
+	Author          DiveMemoriesPageMemoryAuthor       `json:"author"`
+	Title           string                             `json:"title"`
+	Body            string                             `json:"body,omitempty"`
+	Visibility      string                             `json:"visibility"`
+	OccurredAt      string                             `json:"occurredAt"`
+	CreatedAt       string                             `json:"createdAt"`
+	UpdatedAt       string                             `json:"updatedAt"`
+	Attachments     []DiveMemoriesPageMemoryAttachment `json:"attachments"`
+	ViewerCanEdit   bool                               `json:"viewerCanEdit"`
+	ViewerCanDelete bool                               `json:"viewerCanDelete"`
+}
+
+type DiveMemoriesPageLimits struct {
+	ProofItems  int32 `json:"proofItems"`
+	MemoryItems int32 `json:"memoryItems"`
+}
+
 type BadgeTemplate struct {
 	ID            string         `json:"id"`
 	Slug          string         `json:"slug"`
@@ -231,7 +322,7 @@ type UserBadge struct {
 	IsSystemVerified    bool           `json:"isSystemVerified,omitempty"`
 	SourceType          string         `json:"sourceType"`
 	SourceID            string         `json:"sourceId,omitempty"`
-	EarnedAt            string         `json:"earnedAt,omitempty"`
+	EarnedDate          string         `json:"earnedDate,omitempty"`
 	Visibility          string         `json:"visibility"`
 	DisplayOrder        int32          `json:"displayOrder"`
 	Rarity              string         `json:"rarity"`
@@ -287,7 +378,7 @@ type UpsertUserBadgeRequest struct {
 	ReferenceLabel  *string        `json:"referenceLabel,omitempty" validate:"omitempty,max=80"`
 	ReferenceValue  *string        `json:"referenceValue,omitempty" validate:"omitempty,max=160"`
 	ProofMediaID    *string        `json:"proofMediaId,omitempty" validate:"omitempty,uuid"`
-	EarnedAt        *time.Time     `json:"earnedAt,omitempty"`
+	EarnedDate      *string        `json:"earnedDate,omitempty" validate:"omitempty,datetime=2006-01-02"`
 	Visibility      *string        `json:"visibility,omitempty" validate:"omitempty,oneof=public private"`
 	DisplayOrder    *int32         `json:"displayOrder,omitempty" validate:"omitempty,min=0,max=100000"`
 	MetadataJSON    map[string]any `json:"metadataJson,omitempty"`

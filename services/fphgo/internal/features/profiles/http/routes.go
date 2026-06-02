@@ -35,6 +35,7 @@ func PublicRoutes(h *Handlers) chi.Router {
 	r.Get("/{username}/diving", h.GetProfileDivingByUsername)
 	r.Get("/{username}/dive-map", h.GetProfileDiveMapByUsername)
 	r.Get("/{username}/dive-map/{siteID}", h.GetProfileDiveMapSiteByUsername)
+	r.Get("/{username}/dive-memories/{diveSiteSlug}", h.GetProfileDiveMemoriesPageByUsername)
 	r.Get("/{username}/badges", h.GetProfileBadgesByUsername)
 
 	return r

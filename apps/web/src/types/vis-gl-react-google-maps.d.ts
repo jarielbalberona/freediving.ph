@@ -39,6 +39,7 @@ declare module "@vis.gl/react-google-maps" {
     id?: string;
     className?: string;
     mapId?: string;
+    mapTypeId?: string;
     defaultCenter?: { lat: number; lng: number };
     defaultZoom?: number;
     center?: { lat: number; lng: number };

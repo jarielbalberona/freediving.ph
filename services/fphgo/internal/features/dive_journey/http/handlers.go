@@ -160,21 +160,22 @@ func entriesToDTO(items []journeyservice.JourneyEntry) []JourneyEntry {
 
 func entryToDTO(item journeyservice.JourneyEntry) JourneyEntry {
 	return JourneyEntry{
-		ID:           item.ID,
-		UserID:       item.UserID,
-		Type:         item.Type,
-		Title:        item.Title,
-		Body:         item.Body,
-		DiveSiteID:   item.DiveSiteID,
-		SourceType:   item.SourceType,
-		SourceID:     item.SourceID,
-		CoverMediaID: item.CoverMediaID,
-		MediaIDs:     append([]string(nil), item.MediaIDs...),
-		Visibility:   item.Visibility,
-		State:        item.State,
-		OccurredAt:   formatTime(item.OccurredAt),
-		CreatedAt:    formatTime(item.CreatedAt),
-		UpdatedAt:    formatTime(item.UpdatedAt),
+		ID:              item.ID,
+		UserID:          item.UserID,
+		Type:            item.Type,
+		Title:           item.Title,
+		Body:            item.Body,
+		DiveSiteID:      item.DiveSiteID,
+		SourceType:      item.SourceType,
+		SourceID:        item.SourceID,
+		CoverMediaID:    item.CoverMediaID,
+		MediaIDs:        append([]string(nil), item.MediaIDs...),
+		Visibility:      item.Visibility,
+		VisibilityLabel: item.VisibilityLabel,
+		State:           item.State,
+		OccurredAt:      formatTime(item.OccurredAt),
+		CreatedAt:       formatTime(item.CreatedAt),
+		UpdatedAt:       formatTime(item.UpdatedAt),
 	}
 }
 

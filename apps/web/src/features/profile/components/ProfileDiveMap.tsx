@@ -5,16 +5,20 @@ import type {
   ProfileDiveMapResponse,
 } from "@freediving.ph/types";
 import { Map, useMap } from "@vis.gl/react-google-maps";
-import { ImageIcon, MapPinned } from "lucide-react";
+import { HeartHandshake, MapPinned } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
-import { ProfileTabHeader } from "@/features/profile/components/ProfileTabHeader";
+import { Button } from "@/components/ui/button";
 import {
-  useProfileDiveMapQuery,
-  useProfileDiveMapSiteQuery,
-} from "@/features/profile/hooks/queries";
+  PHILIPPINES_CENTER,
+  PHILIPPINES_MIN_ZOOM,
+  PHILIPPINES_PADDED_BOUNDS,
+  PHILIPPINES_ZOOM,
+} from "@/features/explore/types";
+import { ProfileTabHeader } from "@/features/profile/components/ProfileTabHeader";
+import { useProfileDiveMapQuery } from "@/features/profile/hooks/queries";
 import { MapProvider } from "@/providers/map-provider";
 
 type ProfileDiveMapProps = {
@@ -24,25 +28,45 @@ type ProfileDiveMapProps = {
 
 const PROFILE_MAP_ID =
   process.env.NEXT_PUBLIC_GOOGLE_MAP_ID ?? "c5170fc5a137d9ea8ef77423";
-const PHILIPPINES_CENTER = { lat: 12.8797, lng: 121.774 };
-const PROFILE_MAP_ZOOM = 5;
+const PROFILE_MAP_MARKER_ICON_URL =
+  "https://cdn.freediving.ph/images/map-marker.png";
+const PROFILE_MAPS_API_KEY =
+  process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ||
+  process.env.NEXT_PUBLIC_GOOGLE_MAP_API;
+const PROFILE_MAP_HEIGHT_CLASS =
+  "h-[min(68svh,620px)] min-h-[460px] lg:h-[680px]";
+const MARKER_ICON_SIZE = {
+  default: { width: 40, height: 60 },
+  selected: { width: 48, height: 72 },
+} as const;
 
 export function ProfileDiveMap({ username, isOwner }: ProfileDiveMapProps) {
   const mapQuery = useProfileDiveMapQuery(username);
   const markers = mapQuery.data?.markers ?? [];
   const [selectedSiteId, setSelectedSiteId] = useState<string | null>(null);
-  const selectedMarker = useMemo(() => {
-    if (selectedSiteId) {
-      return markers.find((marker) => marker.diveSiteId === selectedSiteId);
-    }
-    return markers[0];
-  }, [markers, selectedSiteId]);
-  const selectedID = selectedMarker?.diveSiteId ?? null;
-  const detailQuery = useProfileDiveMapSiteQuery(
-    username,
-    selectedID,
-    Boolean(selectedID),
-  );
+  const mobileListId = useId();
+  const selectedID =
+    selectedSiteId && markers.some((marker) => marker.diveSiteId === selectedSiteId)
+      ? selectedSiteId
+      : (markers[0]?.diveSiteId ?? null);
+
+  useEffect(() => {
+    if (!selectedID || typeof window === "undefined") return;
+    if (!window.matchMedia("(max-width: 1023px)").matches) return;
+
+    const list = document.getElementById(mobileListId);
+    if (!(list instanceof HTMLElement)) return;
+    const selectedItem = list.querySelector<HTMLElement>(
+      `[data-dive-site-id="${selectedID}"]`,
+    );
+    if (!selectedItem) return;
+
+    selectedItem.scrollIntoView({
+      behavior: "smooth",
+      block: "nearest",
+      inline: "center",
+    });
+  }, [mobileListId, selectedID]);
 
   if (mapQuery.isPending && !mapQuery.data) {
     return <StatusCard text="Loading Dive Map" />;
@@ -56,9 +80,9 @@ export function ProfileDiveMap({ username, isOwner }: ProfileDiveMapProps) {
     return (
       <section className="space-y-3">
         <ProfileTabHeader
-          title="Dive Map"
-          subtitle="Sites you've visited and the memories tied to them."
-          icon={<MapPinned className="h-4 w-4" />}
+          title="Dive Memories"
+          subtitle="Visited sites with location-scoped memories."
+          icon={<HeartHandshake className="h-4 w-4" />}
           action={
             <Badge variant="outline" className="h-6 px-2 text-xs">
               {formatVisitedCount(mapQuery.data)}
@@ -68,7 +92,7 @@ export function ProfileDiveMap({ username, isOwner }: ProfileDiveMapProps) {
         <EmptyDiveMapState
           title={
             isOwner
-              ? "No proof-backed dive sites yet."
+              ? "No post-backed dive sites yet."
               : "No visible Dive Map sites yet."
           }
         />
@@ -79,35 +103,42 @@ export function ProfileDiveMap({ username, isOwner }: ProfileDiveMapProps) {
   return (
     <section className="space-y-3">
       <ProfileTabHeader
-        title="Dive Map"
-        subtitle="Sites you've visited and the memories tied to them."
-        icon={<MapPinned className="h-4 w-4" />}
+        title="Dive Memories"
+        subtitle="Visited sites with location-scoped memories."
+        icon={<HeartHandshake className="h-4 w-4" />}
         action={
           <Badge variant="outline" className="h-6 px-2 text-xs">
             {formatVisitedCount(mapQuery.data)}
           </Badge>
         }
       />
-      <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(300px,360px)]">
-        <div className="space-y-3">
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,30%)_minmax(0,70%)]">
+        <DiveSiteList
+          username={username}
+          isOwner={isOwner}
+          markers={markers}
+          selectedSiteId={selectedID}
+          onSelectSite={setSelectedSiteId}
+          className="hidden lg:flex"
+          layout="sidebar"
+        />
+        <div className="relative">
           <ProfileDiveMapVisual
             markers={markers}
             selectedSiteId={selectedID}
             onSelectSite={setSelectedSiteId}
           />
-          <MarkerCards
+          <DiveSiteList
+            username={username}
+            isOwner={isOwner}
             markers={markers}
             selectedSiteId={selectedID}
             onSelectSite={setSelectedSiteId}
+            id={mobileListId}
+            className="pointer-events-none absolute inset-x-0 bottom-0 z-10 px-3 pb-3 lg:hidden"
+            layout="overlay"
           />
         </div>
-        <DiveMapSiteDetail
-          marker={selectedMarker}
-          isLoading={detailQuery.isPending}
-          isError={detailQuery.isError}
-          media={detailQuery.data?.media ?? []}
-          memories={detailQuery.data?.memories ?? []}
-        />
       </div>
     </section>
   );
@@ -131,37 +162,48 @@ function ProfileDiveMapVisual({
     ? { lat: selectedMarker.latitude, lng: selectedMarker.longitude }
     : PHILIPPINES_CENTER;
 
+  if (!PROFILE_MAPS_API_KEY) {
+    return (
+      <MapStatusPanel
+        title="Map temporarily unavailable"
+        description="The visited-site list still works. Add a Google Maps browser key to restore the visual map."
+      />
+    );
+  }
+
   if (markersWithCoordinates.length === 0) {
     return (
-      <div className="flex min-h-[300px] items-center justify-center rounded-xl border border-border/70 bg-muted/30 p-4 text-center">
-        <div className="max-w-sm space-y-2">
-          <MapPinned className="mx-auto h-5 w-5 text-muted-foreground" />
-          <p className="font-medium text-sm">Map coordinates unavailable</p>
-          <p className="text-muted-foreground text-xs leading-5">
-            The proof-backed sites are still listed below. Coordinates can be
-            added to dive sites later without changing Dive Map ownership.
-          </p>
-        </div>
-      </div>
+      <MapStatusPanel
+        title="Map coordinates unavailable"
+        description="The proof-backed visited-site list still works. Coordinates can be added to dive sites later without changing Dive Map ownership."
+      />
     );
   }
 
   return (
-    <div className="min-h-[320px] overflow-hidden rounded-xl border border-border/70 bg-muted/30">
+    <div
+      className={`overflow-hidden rounded-2xl border border-border/70 bg-muted/30 ${PROFILE_MAP_HEIGHT_CLASS}`}
+    >
       <MapProvider>
         <Map
           id="profile-dive-map"
           mapId={PROFILE_MAP_ID}
+          mapTypeId="terrain"
           defaultCenter={center}
-          defaultZoom={PROFILE_MAP_ZOOM}
+          defaultZoom={PHILIPPINES_ZOOM}
+          minZoom={PHILIPPINES_MIN_ZOOM}
           gestureHandling="greedy"
           disableDefaultUI={false}
           mapTypeControl={false}
           streetViewControl={false}
           fullscreenControl={false}
           clickableIcons={false}
+          restriction={{
+            latLngBounds: PHILIPPINES_PADDED_BOUNDS,
+            strictBounds: false,
+          }}
           reuseMaps
-          className="h-[320px] w-full"
+          className="h-full w-full"
         >
           <ProfileMapMarkers
             markers={markersWithCoordinates}
@@ -221,7 +263,7 @@ function ProfileMapMarkers({
 
     for (const marker of markers) {
       const active = marker.diveSiteId === selectedSiteId;
-      const content = createMarkerContent(active, marker.mediaPostCount);
+      const content = createMarkerContent(active);
       const currentMarker = markersRef.current.get(marker.diveSiteId);
 
       if (currentMarker) {
@@ -273,151 +315,94 @@ function ProfileMapMarkers({
   return null;
 }
 
-function MarkerCards({
+function DiveSiteList({
+  id,
+  username,
+  isOwner,
   markers,
   selectedSiteId,
   onSelectSite,
+  className,
+  layout,
 }: {
+  id?: string;
+  username: string;
+  isOwner: boolean;
   markers: ProfileDiveMapMarker[];
   selectedSiteId: string | null;
   onSelectSite: (siteId: string) => void;
+  className?: string;
+  layout: "sidebar" | "overlay";
 }) {
-  return (
-    <div className="grid gap-2 sm:grid-cols-2">
-      {markers.map((marker) => {
-        const active = marker.diveSiteId === selectedSiteId;
-        return (
-          <button
-            key={marker.diveSiteId}
-            type="button"
-            aria-pressed={active}
-            onClick={() => onSelectSite(marker.diveSiteId)}
-            className={[
-              "min-h-24 rounded-lg border bg-background p-3 text-left transition",
-              active
-                ? "border-primary shadow-sm"
-                : "border-border/70 hover:border-primary/60",
-            ].join(" ")}
-          >
-            <div className="flex items-start justify-between gap-2">
-              <div className="min-w-0">
-                <p className="line-clamp-1 text-sm font-semibold text-foreground">
-                  {marker.diveSiteName}
-                </p>
-                <p className="line-clamp-1 text-xs text-muted-foreground">
-                  {marker.diveSiteArea}
-                </p>
-              </div>
-              <Badge className="h-5 px-2 text-[11px]">
-                {marker.mediaPostCount}
-              </Badge>
-            </div>
-            <p className="mt-3 text-xs text-muted-foreground">
-              Last proof {formatShortDate(marker.lastVisitedAt)}
-            </p>
-          </button>
-        );
-      })}
-    </div>
-  );
-}
-
-function DiveMapSiteDetail({
-  marker,
-  isLoading,
-  isError,
-  media,
-  memories,
-}: {
-  marker?: ProfileDiveMapMarker;
-  isLoading: boolean;
-  isError: boolean;
-  media: NonNullable<
-    ReturnType<typeof useProfileDiveMapSiteQuery>["data"]
-  >["media"];
-  memories: NonNullable<
-    ReturnType<typeof useProfileDiveMapSiteQuery>["data"]
-  >["memories"];
-}) {
-  if (!marker) return null;
+  const isOverlay = layout === "overlay";
 
   return (
-    <aside className="rounded-xl border border-border/70 bg-background p-4">
-      <div className="space-y-1">
-        <Link
-          href={`/explore/sites/${marker.diveSiteSlug}`}
-          className="line-clamp-1 text-sm font-semibold hover:underline"
-        >
-          {marker.diveSiteName}
-        </Link>
-        <p className="line-clamp-1 text-xs text-muted-foreground">
-          {marker.diveSiteArea}
-        </p>
-      </div>
-      <div className="mt-3 flex flex-wrap gap-1.5">
-        <Badge variant="outline" className="h-5 px-2 text-[11px]">
-          {marker.mediaPostCount} proof{" "}
-          {marker.mediaPostCount === 1 ? "post" : "posts"}
-        </Badge>
-        <Badge variant="outline" className="h-5 px-2 text-[11px]">
-          {formatShortDate(marker.firstVisitedAt)}
-        </Badge>
-      </div>
-      <div className="mt-4 space-y-2">
-        {isLoading ? (
-          <StatusCard text="Loading proof media" />
-        ) : isError ? (
-          <StatusCard text="Proof media is not visible." />
-        ) : media.length > 0 ? (
-          media.slice(0, 4).map((item) => (
+    <div
+      id={id}
+      className={[
+        className,
+        isOverlay
+          ? "absolute"
+          : "max-h-[680px] min-h-0 flex-col overflow-y-auto",
+      ]
+        .filter(Boolean)
+        .join(" ")}
+    >
+      <div
+        className={[
+          isOverlay
+            ? "pointer-events-auto flex w-full max-w-full gap-2 overflow-x-auto rounded-2xl bg-background/80 p-2 shadow-lg backdrop-blur"
+            : "flex flex-col gap-1.5 px-2 py-2",
+        ].join(" ")}
+      >
+        {markers.map((marker) => {
+          const active = marker.diveSiteId === selectedSiteId;
+          return (
             <div
-              key={item.mediaItemId}
-              className="flex items-center gap-3 rounded-lg border border-border/70 p-2"
+              key={marker.diveSiteId}
+              data-dive-site-id={marker.diveSiteId}
+              className={[
+                isOverlay
+                  ? "w-[280px] shrink-0 rounded-lg border bg-background/95 px-3 py-2.5 text-left shadow-sm"
+                  : "rounded-lg px-2.5 py-2 text-left transition",
+                active
+                  ? "border-primary bg-primary/5 ring-1 ring-primary/20"
+                  : "border-transparent hover:border-primary/50 hover:bg-muted/35",
+              ].join(" ")}
             >
-              <div className="flex size-12 shrink-0 items-center justify-center rounded-md bg-muted">
-                <ImageIcon className="h-4 w-4 text-muted-foreground" />
-              </div>
-              <div className="min-w-0">
-                <p className="line-clamp-1 text-xs font-medium">
-                  {item.caption || `${titleCase(item.type)} proof`}
-                </p>
-                <p className="text-[11px] text-muted-foreground">
-                  {formatShortDate(item.createdAt)}
-                </p>
+              <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-x-2 gap-y-1">
+                <button
+                  type="button"
+                  aria-pressed={active}
+                  onClick={() => onSelectSite(marker.diveSiteId)}
+                  className="min-w-0 text-left"
+                >
+                  <p className="line-clamp-1 text-sm font-semibold text-foreground">
+                    {marker.diveSiteName}
+                  </p>
+                  <p className="line-clamp-1 text-xs text-muted-foreground">
+                    {marker.diveSiteArea}
+                  </p>
+                </button>
+                <div className="flex flex-col items-end">
+                  <Button
+                    size="xs"
+                    variant={active ? "default" : "outline"}
+                    render={
+                      <Link
+                        href={`/dive-memories/${marker.diveSiteSlug}/${username}`}
+                      />
+                    }
+                  >
+                    View Memories
+                  </Button>
+                </div>
               </div>
             </div>
-          ))
-        ) : (
-          <StatusCard text="No visible proof media." />
-        )}
+          );
+        })}
       </div>
-      {memories.length > 0 ? (
-        <div className="mt-4 border-t border-border/70 pt-3">
-          <p className="mb-2 text-xs font-semibold text-muted-foreground">
-            Memories
-          </p>
-          <div className="space-y-2">
-            {memories.slice(0, 3).map((memory) => (
-              <div key={memory.id} className="space-y-1">
-                <div className="flex items-center justify-between gap-2">
-                  <p className="line-clamp-1 text-xs font-medium">
-                    {memory.title}
-                  </p>
-                  <Badge variant="outline" className="h-5 px-2 text-[11px]">
-                    {memory.visibility}
-                  </Badge>
-                </div>
-                {memory.body ? (
-                  <p className="line-clamp-2 text-[11px] text-muted-foreground">
-                    {memory.body}
-                  </p>
-                ) : null}
-              </div>
-            ))}
-          </div>
-        </div>
-      ) : null}
-    </aside>
+    </div>
   );
 }
 
@@ -434,23 +419,30 @@ function hasCoordinates(
 
 function createMarkerContent(
   isSelected: boolean,
-  count: number,
 ): HTMLDivElement {
+  const size = isSelected ? MARKER_ICON_SIZE.selected : MARKER_ICON_SIZE.default;
   const marker = document.createElement("div");
-  marker.style.width = isSelected ? "42px" : "34px";
-  marker.style.height = isSelected ? "42px" : "34px";
+  marker.style.width = `${size.width}px`;
+  marker.style.height = `${size.height}px`;
   marker.style.display = "grid";
   marker.style.placeItems = "center";
-  marker.style.borderRadius = "999px";
-  marker.style.background = isSelected ? "#0284C7" : "#0F766E";
-  marker.style.border = "3px solid #FFFFFF";
-  marker.style.color = "#FFFFFF";
-  marker.style.fontSize = "12px";
-  marker.style.fontWeight = "700";
-  marker.style.boxShadow = isSelected
-    ? "0 12px 24px rgb(8 47 73 / 0.32)"
-    : "0 8px 18px rgb(8 47 73 / 0.24)";
-  marker.textContent = String(count);
+  marker.style.filter = isSelected
+    ? "drop-shadow(0 0 2px #FFFFFF) drop-shadow(0 0 7px rgb(2 132 199 / 0.58)) drop-shadow(0 10px 18px rgb(8 47 73 / 0.3))"
+    : "drop-shadow(0 8px 16px rgb(8 47 73 / 0.28))";
+  marker.style.transform = isSelected ? "translateY(-6px)" : "translateY(0)";
+  marker.style.transition = "transform 160ms ease, filter 160ms ease";
+
+  const image = document.createElement("img");
+  image.src = PROFILE_MAP_MARKER_ICON_URL;
+  image.alt = "";
+  image.decoding = "async";
+  image.style.width = "100%";
+  image.style.height = "100%";
+  image.style.objectFit = "contain";
+  image.style.display = "block";
+  image.style.pointerEvents = "none";
+
+  marker.appendChild(image);
   return marker;
 }
 
@@ -467,6 +459,26 @@ function EmptyDiveMapState({ title }: { title: string }) {
         <p className="text-sm font-semibold text-foreground">{title}</p>
       </div>
     </section>
+  );
+}
+
+function MapStatusPanel({
+  title,
+  description,
+}: {
+  title: string;
+  description: string;
+}) {
+  return (
+    <div
+      className={`flex items-center justify-center rounded-2xl border border-dashed border-border/70 bg-muted/30 p-4 text-center ${PROFILE_MAP_HEIGHT_CLASS}`}
+    >
+      <div className="max-w-sm space-y-2">
+        <MapPinned className="mx-auto h-5 w-5 text-muted-foreground" />
+        <p className="font-medium text-sm">{title}</p>
+        <p className="text-muted-foreground text-xs leading-5">{description}</p>
+      </div>
+    </div>
   );
 }
 
@@ -487,13 +499,4 @@ function formatShortDate(value: string) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "Unknown";
   return date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
-}
-
-function titleCase(value: string) {
-  return value
-    .replace(/_/g, " ")
-    .split(" ")
-    .filter(Boolean)
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(" ");
 }

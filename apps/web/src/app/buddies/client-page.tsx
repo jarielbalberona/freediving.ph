@@ -89,12 +89,6 @@ const RELATIONSHIPS: Array<{
   { value: "interested", label: "Interested" },
 ];
 
-const VISIBILITY_ITEMS = [
-  { value: "members", label: "Members" },
-  { value: "public", label: "Public" },
-  { value: "private", label: "Private" },
-] as const;
-
 const DIVE_PRESENCE_ACCESS_NOTE =
   "Available Buddies come from active Dive Presence only. Locals and regulars come from long-term dive-site relationships and do not imply availability.";
 
@@ -107,7 +101,7 @@ const emptyPresenceDraft = (): PresenceDraft => ({
   siteSlug: "",
   presenceType: "available",
   flexible: true,
-  visibility: "members",
+  visibility: "public",
   contactEnabled: true,
   startAt: "",
   endAt: "",
@@ -117,7 +111,7 @@ const emptyPresenceDraft = (): PresenceDraft => ({
 const emptyAffinityDraft = (): AffinityDraft => ({
   siteSlug: "",
   relationship: "regular",
-  visibility: "members",
+  visibility: "public",
   contactEnabled: false,
   note: "",
 });
@@ -547,14 +541,6 @@ function PresenceForm({
               </SelectContent>
             </Select>
           </Field>
-          <Field label="Visibility">
-            <VisibilitySelect
-              value={draft.visibility}
-              onValueChange={(value) =>
-                setDraft((current) => ({ ...current, visibility: value }))
-              }
-            />
-          </Field>
         </div>
         <label className="flex items-center gap-2 text-sm">
           <input
@@ -656,14 +642,6 @@ function AffinityForm({
               </SelectContent>
             </Select>
           </Field>
-          <Field label="Visibility">
-            <VisibilitySelect
-              value={draft.visibility}
-              onValueChange={(value) =>
-                setDraft((current) => ({ ...current, visibility: value }))
-              }
-            />
-          </Field>
         </div>
         <Textarea
           placeholder="Note"
@@ -719,35 +697,6 @@ function SiteSelect({
       searchPlaceholder="Search dive sites"
       limit={24}
     />
-  );
-}
-
-function VisibilitySelect({
-  value,
-  onValueChange,
-}: {
-  value: CreateDivePresenceRequest["visibility"];
-  onValueChange: (value: CreateDivePresenceRequest["visibility"]) => void;
-}) {
-  return (
-    <Select
-      value={value}
-      onValueChange={(next) =>
-        onValueChange(next as CreateDivePresenceRequest["visibility"])
-      }
-      items={VISIBILITY_ITEMS}
-    >
-      <SelectTrigger className="w-full">
-        <SelectValue />
-      </SelectTrigger>
-      <SelectContent>
-        {VISIBILITY_ITEMS.map((item) => (
-          <SelectItem key={item.value} value={item.value}>
-            {item.label}
-          </SelectItem>
-        ))}
-      </SelectContent>
-    </Select>
   );
 }
 
@@ -1013,7 +962,7 @@ function presencePayload(draft: PresenceDraft): CreateDivePresenceRequest {
     flexible: draft.flexible,
     startAt: draft.flexible ? undefined : rfc3339FromLocal(draft.startAt),
     endAt: draft.flexible ? undefined : rfc3339FromLocal(draft.endAt),
-    visibility: draft.visibility,
+    visibility: "public",
     contactEnabled: draft.contactEnabled,
     note: draft.note?.trim() || undefined,
   };
@@ -1022,7 +971,7 @@ function presencePayload(draft: PresenceDraft): CreateDivePresenceRequest {
 function affinityPayload(draft: AffinityDraft): CreateDiveSiteAffinityRequest {
   return {
     relationship: draft.relationship,
-    visibility: draft.visibility,
+    visibility: "public",
     contactEnabled: draft.contactEnabled,
     note: draft.note?.trim() || undefined,
   };

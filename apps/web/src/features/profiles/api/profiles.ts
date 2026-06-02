@@ -1,6 +1,7 @@
 import {
   type ProfileDiveMapResponse,
   type ProfileDiveMapSiteResponse,
+  type ProfileDiveMemoriesPageResponse,
   type ProfileJourneyResponse,
   type ProfileDiveMemoriesResponse,
   type ProfileDivingResponse,
@@ -17,6 +18,7 @@ import {
   type UpsertUserBadgeRequest,
   type CreateManualJourneyEntryRequest,
   type JourneyEntryResponse,
+  type UpdateManualJourneyEntryRequest,
   type CreateDiveMemoryRequest,
   type DiveMemoryResponse,
   type DiveMemoryTagsResponse,
@@ -129,6 +131,16 @@ export const profilesApi = {
     );
   },
 
+  getProfileDiveMemoriesPageByUsername: async (
+    username: string,
+    diveSiteSlug: string,
+  ): Promise<ProfileDiveMemoriesPageResponse> => {
+    return fphgoFetchClient<ProfileDiveMemoriesPageResponse>(
+      routes.v1.profiles.profileDiveMemoriesPage(username, diveSiteSlug),
+      { auth: "ready-only" },
+    );
+  },
+
   getMyDiveMemories: async (): Promise<ProfileDiveMemoriesResponse> => {
     return fphgoFetchClient<ProfileDiveMemoriesResponse>(
       routes.v1.profiles.myDiveMemories(),
@@ -210,6 +222,19 @@ export const profilesApi = {
       routes.v1.profiles.myJourney(),
       {
         method: "POST",
+        body: payload as unknown as Record<string, unknown>,
+      },
+    );
+  },
+
+  updateJourneyEntry: async (
+    entryId: string,
+    payload: UpdateManualJourneyEntryRequest,
+  ): Promise<JourneyEntryResponse> => {
+    return fphgoFetchClient<JourneyEntryResponse>(
+      routes.v1.profiles.myJourneyEntry(entryId),
+      {
+        method: "PATCH",
         body: payload as unknown as Record<string, unknown>,
       },
     );

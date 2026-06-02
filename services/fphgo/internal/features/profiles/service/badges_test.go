@@ -13,6 +13,8 @@ type badgeTestRepo struct {
 	ownsProof    bool
 	createdInput profilesrepo.UpsertUserBadgeInput
 	createCalled bool
+	updatedInput profilesrepo.UpsertUserBadgeInput
+	updateCalled bool
 }
 
 func (r *badgeTestRepo) GetProfileByUserID(context.Context, string) (profilesrepo.Profile, error) {
@@ -55,6 +57,10 @@ func (r *badgeTestRepo) GetProfileDiveMapSiteByUsername(context.Context, string,
 	return profilesrepo.ProfileDiveMapSiteDetail{}, nil
 }
 
+func (r *badgeTestRepo) GetProfileDiveMemoriesPageByUsername(context.Context, string, string, string) (profilesrepo.ProfileDiveMemoriesPage, error) {
+	return profilesrepo.ProfileDiveMemoriesPage{}, nil
+}
+
 func (r *badgeTestRepo) ListBadgeTemplates(context.Context) ([]profilesrepo.BadgeTemplate, error) {
 	return []profilesrepo.BadgeTemplate{r.template}, nil
 }
@@ -83,7 +89,7 @@ func (r *badgeTestRepo) CreateUserBadge(_ context.Context, input profilesrepo.Up
 		VerificationStatus: "unverified",
 		SourceType:         input.SourceType,
 		SourceID:           stringPtrValue(input.SourceID),
-		EarnedAt:           input.EarnedAt,
+		EarnedDate:         input.EarnedDate,
 		Visibility:         input.Visibility,
 		DisplayOrder:       input.DisplayOrder,
 		MetadataJSON:       input.MetadataJSON,
@@ -99,8 +105,25 @@ func stringPtrValue(input *string) string {
 	return *input
 }
 
-func (r *badgeTestRepo) UpdateUserBadge(context.Context, profilesrepo.UpsertUserBadgeInput) (profilesrepo.UserBadge, error) {
-	return profilesrepo.UserBadge{}, nil
+func (r *badgeTestRepo) UpdateUserBadge(_ context.Context, input profilesrepo.UpsertUserBadgeInput) (profilesrepo.UserBadge, error) {
+	r.updateCalled = true
+	r.updatedInput = input
+	return profilesrepo.UserBadge{
+		ID:                 input.ID,
+		UserID:             input.UserID,
+		Template:           r.template,
+		ValueNumber:        input.ValueNumber,
+		ProofMediaID:       stringPtrValue(input.ProofMediaID),
+		VerificationStatus: "unverified",
+		SourceType:         input.SourceType,
+		SourceID:           stringPtrValue(input.SourceID),
+		EarnedDate:         input.EarnedDate,
+		Visibility:         input.Visibility,
+		DisplayOrder:       input.DisplayOrder,
+		MetadataJSON:       input.MetadataJSON,
+		CreatedAt:          time.Now().UTC(),
+		UpdatedAt:          time.Now().UTC(),
+	}, nil
 }
 
 func (r *badgeTestRepo) DeleteUserBadge(context.Context, string, string) error {
@@ -120,7 +143,7 @@ func (r *badgeTestRepo) UserOwnsProofMedia(context.Context, string, string) (boo
 }
 
 func TestCreateManualBadgeCarriesFutureMetadataAndValidatesProof(t *testing.T) {
-	earnedAt := time.Date(2026, 5, 31, 10, 0, 0, 0, time.UTC)
+	earnedDate := time.Date(2026, 5, 31, 0, 0, 0, 0, time.UTC)
 	value := 32.0
 	displayOrder := int32(7)
 	visibility := "private"
@@ -146,7 +169,7 @@ func TestCreateManualBadgeCarriesFutureMetadataAndValidatesProof(t *testing.T) {
 		BadgeTemplateID: repo.template.ID,
 		ValueNumber:     &value,
 		ProofMediaID:    &proofMediaID,
-		EarnedAt:        &earnedAt,
+		EarnedDate:      &earnedDate,
 		Visibility:      &visibility,
 		DisplayOrder:    &displayOrder,
 		MetadataJSON:    map[string]any{"sourceLabel": "pool comp"},
@@ -166,8 +189,8 @@ func TestCreateManualBadgeCarriesFutureMetadataAndValidatesProof(t *testing.T) {
 	if badge.DisplayValue != "32m" {
 		t.Fatalf("display value = %q, want 32m", badge.DisplayValue)
 	}
-	if badge.EarnedAt == nil || !badge.EarnedAt.Equal(earnedAt) {
-		t.Fatalf("earnedAt = %v, want %v", badge.EarnedAt, earnedAt)
+	if badge.EarnedDate == nil || !badge.EarnedDate.Equal(earnedDate) {
+		t.Fatalf("earnedDate = %v, want %v", badge.EarnedDate, earnedDate)
 	}
 	if badge.MetadataJSON["sourceLabel"] != "pool comp" {
 		t.Fatalf("metadata not preserved: %#v", badge.MetadataJSON)
@@ -200,6 +223,46 @@ func TestCreateBadgeRejectsProofMediaNotOwnedByUser(t *testing.T) {
 		ProofMediaID:    &proofMediaID,
 	}); err == nil {
 		t.Fatal("expected proof media ownership validation error")
+	}
+}
+
+func TestUpdateBadgePreservesEarnedDateChange(t *testing.T) {
+	earnedDate := time.Date(2026, 6, 1, 0, 0, 0, 0, time.UTC)
+	value := 40.0
+	repo := &badgeTestRepo{
+		ownsProof: true,
+		template: profilesrepo.BadgeTemplate{
+			ID:           "550e8400-e29b-41d4-a716-446655440001",
+			Slug:         "pb-constant-weight",
+			Name:         "PB Constant Weight",
+			Category:     "personal_best",
+			ValueType:    "distance",
+			Unit:         "m",
+			IsPublic:     true,
+			Rarity:       "common",
+			SourceModule: "profile",
+		},
+	}
+	svc := New(repo)
+
+	badge, err := svc.UpdateUserBadge(context.Background(), UpsertUserBadgeInput{
+		ActorID:         "550e8400-e29b-41d4-a716-446655440000",
+		BadgeID:         "550e8400-e29b-41d4-a716-446655440099",
+		BadgeTemplateID: repo.template.ID,
+		ValueNumber:     &value,
+		EarnedDate:      &earnedDate,
+	})
+	if err != nil {
+		t.Fatalf("UpdateUserBadge failed: %v", err)
+	}
+	if !repo.updateCalled {
+		t.Fatal("expected repo UpdateUserBadge to be called")
+	}
+	if repo.updatedInput.EarnedDate == nil || !repo.updatedInput.EarnedDate.Equal(earnedDate) {
+		t.Fatalf("repo earnedDate = %v, want %v", repo.updatedInput.EarnedDate, earnedDate)
+	}
+	if badge.EarnedDate == nil || !badge.EarnedDate.Equal(earnedDate) {
+		t.Fatalf("badge earnedDate = %v, want %v", badge.EarnedDate, earnedDate)
 	}
 }
 

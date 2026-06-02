@@ -894,6 +894,7 @@ CREATE TABLE IF NOT EXISTS user_badges (
   source_type TEXT NOT NULL DEFAULT 'manual',
   source_id TEXT,
   earned_at TIMESTAMPTZ,
+  earned_date DATE NOT NULL DEFAULT CURRENT_DATE,
   visibility TEXT NOT NULL DEFAULT 'public',
   display_order INTEGER NOT NULL DEFAULT 0,
   metadata_json JSONB NOT NULL DEFAULT '{}'::jsonb,

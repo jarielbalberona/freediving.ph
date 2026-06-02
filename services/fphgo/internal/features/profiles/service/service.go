@@ -32,6 +32,7 @@ type repository interface {
 	ListProfileDivingByUsername(ctx context.Context, username, viewerUserID string) (profilesrepo.ProfileDiving, error)
 	GetProfileDiveMapByUsername(ctx context.Context, username, viewerUserID string) (profilesrepo.ProfileDiveMap, error)
 	GetProfileDiveMapSiteByUsername(ctx context.Context, username, diveSiteID, viewerUserID string) (profilesrepo.ProfileDiveMapSiteDetail, error)
+	GetProfileDiveMemoriesPageByUsername(ctx context.Context, username, diveSiteSlug, viewerUserID string) (profilesrepo.ProfileDiveMemoriesPage, error)
 	ListBadgeTemplates(ctx context.Context) ([]profilesrepo.BadgeTemplate, error)
 	GetBadgeTemplate(ctx context.Context, templateID string) (profilesrepo.BadgeTemplate, error)
 	ListUserBadgesByUserID(ctx context.Context, userID string) ([]profilesrepo.UserBadge, error)
@@ -219,6 +220,99 @@ type ProfileDiveMapSiteDetail struct {
 	Memories []ProfileDiveMapMemory
 }
 
+type DiveMemoriesPageProfile struct {
+	ID            string
+	Username      string
+	DisplayName   string
+	AvatarURL     string
+	ViewerIsOwner bool
+}
+
+type DiveMemoriesPageSite struct {
+	DiveSiteID string
+	Slug       string
+	Name       string
+	Area       string
+	Latitude   *float64
+	Longitude  *float64
+}
+
+type DiveMemoriesPageEntry struct {
+	FirstProofAt            time.Time
+	LastProofAt             time.Time
+	LastUpdatedAt           time.Time
+	ProofCount              int32
+	MemoryCount             int32
+	MediaCount              int32
+	TextCount               int32
+	ViewerCanCreateMemory   bool
+	ViewerCanManageMemories bool
+}
+
+type DiveMemoriesPageMediaAsset struct {
+	ID       string
+	URL      string
+	MimeType string
+	Width    int32
+	Height   int32
+	Type     string
+}
+
+type DiveMemoriesPageProofItem struct {
+	ID            string
+	Kind          string
+	PostID        string
+	MediaItemID   string
+	MediaObjectID string
+	Media         DiveMemoriesPageMediaAsset
+	Caption       string
+	CreatedAt     time.Time
+	ProofLabel    string
+}
+
+type DiveMemoriesPageMemoryAttachment struct {
+	ID            string
+	MediaObjectID string
+	Media         DiveMemoriesPageMediaAsset
+	CreatedAt     time.Time
+}
+
+type DiveMemoriesPageMemoryAuthor struct {
+	UserID      string
+	Username    string
+	DisplayName string
+	AvatarURL   string
+}
+
+type DiveMemoriesPageMemoryItem struct {
+	ID              string
+	Kind            string
+	Author          DiveMemoriesPageMemoryAuthor
+	Title           string
+	Body            string
+	Visibility      string
+	OccurredAt      time.Time
+	CreatedAt       time.Time
+	UpdatedAt       time.Time
+	Attachments     []DiveMemoriesPageMemoryAttachment
+	ViewerCanEdit   bool
+	ViewerCanDelete bool
+}
+
+type DiveMemoriesPageLimits struct {
+	ProofItems  int32
+	MemoryItems int32
+}
+
+type ProfileDiveMemoriesPage struct {
+	Profile     DiveMemoriesPageProfile
+	Site        DiveMemoriesPageSite
+	Entry       DiveMemoriesPageEntry
+	ProofItems  []DiveMemoriesPageProofItem
+	MemoryItems []DiveMemoriesPageMemoryItem
+	Limits      DiveMemoriesPageLimits
+}
+
 type BadgeTemplate struct {
 	ID            string         `json:"id"`
 	Slug          string         `json:"slug"`
@@ -256,7 +350,7 @@ type UserBadge struct {
 	IsSystemVerified    bool           `json:"isSystemVerified"`
 	SourceType          string         `json:"sourceType"`
 	SourceID            string         `json:"sourceId,omitempty"`
-	EarnedAt            *time.Time     `json:"earnedAt,omitempty"`
+	EarnedDate          *time.Time     `json:"earnedDate,omitempty"`
 	Visibility          string         `json:"visibility"`
 	DisplayOrder        int32          `json:"displayOrder"`
 	Rarity              string         `json:"rarity"`
@@ -295,7 +389,7 @@ type UpsertUserBadgeInput struct {
 	ProofMediaID    *string
 	SourceType      *string
 	SourceID        *string
-	EarnedAt        *time.Time
+	EarnedDate      *time.Time
 	Visibility      *string
 	DisplayOrder    *int32
 	MetadataJSON    map[string]any
@@ -312,6 +406,11 @@ type UpdateMyProfileInput struct {
 	CertLevel   *string
 	Socials     *map[string]string
 }
+
+const (
+	diveMemoriesPageProofLimit  int32 = 120
+	diveMemoriesPageMemoryLimit int32 = 20
+)
 
 func New(repo repository, opts ...Option) *Service {
 	svc := &Service{repo: repo, limiter: noopLimiter{}}
@@ -663,6 +762,155 @@ func (s *Service) GetProfileDiveMapSiteByUsername(ctx context.Context, username,
 	return ProfileDiveMapSiteDetail{Marker: profileDiveMapMarkerFromRepo(result.Marker), Media: media, Memories: memories}, nil
 }
 
+func (s *Service) GetProfileDiveMemoriesPageByUsername(ctx context.Context, username, diveSiteSlug, viewerUserID string) (ProfileDiveMemoriesPage, error) {
+	value := strings.TrimSpace(username)
+	if value == "" {
+		return ProfileDiveMemoriesPage{}, apperrors.New(http.StatusBadRequest, "invalid_username", "username is required", nil)
+	}
+	slug := strings.TrimSpace(diveSiteSlug)
+	if slug == "" {
+		return ProfileDiveMemoriesPage{}, apperrors.New(http.StatusBadRequest, "invalid_dive_site_slug", "dive site slug is required", nil)
+	}
+	viewerID := strings.TrimSpace(viewerUserID)
+	if viewerID != "" {
+		if _, err := uuid.Parse(viewerID); err != nil {
+			return ProfileDiveMemoriesPage{}, apperrors.New(http.StatusUnauthorized, "unauthorized", "invalid viewer id", err)
+		}
+	}
+
+	profile, err := s.GetProfileViewByUsername(ctx, value, viewerID)
+	if err != nil {
+		return ProfileDiveMemoriesPage{}, err
+	}
+
+	result, err := s.repo.GetProfileDiveMemoriesPageByUsername(ctx, value, slug, viewerID)
+	if err != nil {
+		if profilesrepo.IsNoRows(err) {
+			return ProfileDiveMemoriesPage{}, apperrors.New(http.StatusNotFound, "dive_memories_page_not_found", "dive memories page not found", err)
+		}
+		return ProfileDiveMemoriesPage{}, apperrors.New(http.StatusInternalServerError, "profile_dive_memories_page_failed", "failed to fetch dive memories page", err)
+	}
+
+	viewerIsOwner := profile.Viewer.IsSelf || profile.Viewer.CanEdit
+	memoryCount := int32(len(result.MemoryItems))
+	memoryMediaCount := int32(0)
+	textCount := int32(0)
+	memoryItems := make([]DiveMemoriesPageMemoryItem, 0, len(result.MemoryItems))
+	for _, item := range result.MemoryItems {
+		attachments := make([]DiveMemoriesPageMemoryAttachment, 0, len(item.Attachments))
+		for _, attachment := range item.Attachments {
+			attachments = append(attachments, DiveMemoriesPageMemoryAttachment{
+				ID:            attachment.ID,
+				MediaObjectID: attachment.MediaID,
+				Media: DiveMemoriesPageMediaAsset{
+					ID:       attachment.MediaID,
+					URL:      mediaurl.Materialize(attachment.ObjectKey, s.mediaBaseURL),
+					MimeType: attachment.MimeType,
+					Width:    attachment.Width,
+					Height:   attachment.Height,
+					Type:     mediaAssetType(attachment.MimeType),
+				},
+				CreatedAt: attachment.CreatedAt,
+			})
+		}
+		if len(attachments) > 0 {
+			memoryMediaCount++
+		} else {
+			textCount++
+		}
+		memoryItems = append(memoryItems, DiveMemoriesPageMemoryItem{
+			ID:   item.ID,
+			Kind: "dive_memory",
+			Author: DiveMemoriesPageMemoryAuthor{
+				UserID:      profile.UserID,
+				Username:    profile.Username,
+				DisplayName: profile.DisplayName,
+				AvatarURL:   profile.AvatarURL,
+			},
+			Title:           item.Title,
+			Body:            item.Body,
+			Visibility:      item.Visibility,
+			OccurredAt:      item.OccurredAt,
+			CreatedAt:       item.CreatedAt,
+			UpdatedAt:       item.UpdatedAt,
+			Attachments:     attachments,
+			ViewerCanEdit:   viewerIsOwner,
+			ViewerCanDelete: viewerIsOwner,
+		})
+	}
+
+	lastUpdatedAt := result.Marker.LastProofAddedAt
+	for _, item := range result.MemoryItems {
+		if item.UpdatedAt.After(lastUpdatedAt) {
+			lastUpdatedAt = item.UpdatedAt
+		}
+	}
+
+	proofItems := make([]DiveMemoriesPageProofItem, 0, len(result.ProofItems))
+	for _, item := range result.ProofItems {
+		proofItems = append(proofItems, DiveMemoriesPageProofItem{
+			ID:            item.ID,
+			Kind:          "proof_media_post",
+			PostID:        item.PostID,
+			MediaItemID:   item.MediaItemID,
+			MediaObjectID: item.MediaObjectID,
+			Media: DiveMemoriesPageMediaAsset{
+				ID:       item.MediaObjectID,
+				URL:      mediaurl.Materialize(item.StorageKey, s.mediaBaseURL),
+				MimeType: item.MimeType,
+				Width:    item.Width,
+				Height:   item.Height,
+				Type:     item.Type,
+			},
+			Caption:    item.Caption,
+			CreatedAt:  item.CreatedAt,
+			ProofLabel: "Proof post",
+		})
+	}
+
+	return ProfileDiveMemoriesPage{
+		Profile: DiveMemoriesPageProfile{
+			ID:            profile.UserID,
+			Username:      profile.Username,
+			DisplayName:   profile.DisplayName,
+			AvatarURL:     profile.AvatarURL,
+			ViewerIsOwner: viewerIsOwner,
+		},
+		Site: DiveMemoriesPageSite{
+			DiveSiteID: result.Site.DiveSiteID,
+			Slug:       result.Site.Slug,
+			Name:       result.Site.Name,
+			Area:       result.Site.Area,
+			Latitude:   result.Site.Latitude,
+			Longitude:  result.Site.Longitude,
+		},
+		Entry: DiveMemoriesPageEntry{
+			FirstProofAt:            result.Marker.FirstVisitedAt,
+			LastProofAt:             result.Marker.LastVisitedAt,
+			LastUpdatedAt:           lastUpdatedAt,
+			ProofCount:              result.Marker.MediaPostCount,
+			MemoryCount:             memoryCount,
+			MediaCount:              int32(len(proofItems)) + memoryMediaCount,
+			TextCount:               textCount,
+			ViewerCanCreateMemory:   viewerIsOwner,
+			ViewerCanManageMemories: viewerIsOwner,
+		},
+		ProofItems:  proofItems,
+		MemoryItems: memoryItems,
+		Limits: DiveMemoriesPageLimits{
+			ProofItems:  diveMemoriesPageProofLimit,
+			MemoryItems: diveMemoriesPageMemoryLimit,
+		},
+	}, nil
+}
+
+func mediaAssetType(mimeType string) string {
+	if strings.HasPrefix(strings.ToLower(strings.TrimSpace(mimeType)), "video/") {
+		return "video"
+	}
+	return "photo"
+}
+
 func profileDiveMapMarkerFromRepo(marker profilesrepo.ProfileDiveMapMarker) ProfileDiveMapMarker {
 	return ProfileDiveMapMarker{
 		DiveSiteID:       marker.DiveSiteID,
@@ -820,10 +1068,10 @@ func (s *Service) validateBadgeInput(ctx context.Context, input UpsertUserBadgeI
 	if input.DisplayOrder != nil {
 		displayOrder = *input.DisplayOrder
 	}
-	earnedAt := input.EarnedAt
-	if earnedAt == nil && !requireBadgeID {
-		now := time.Now().UTC()
-		earnedAt = &now
+	earnedDate := input.EarnedDate
+	if earnedDate == nil && !requireBadgeID {
+		now := truncateToUTCDate(time.Now().UTC())
+		earnedDate = &now
 	}
 	if !validBadgeSourceType(sourceType) {
 		return profilesrepo.UpsertUserBadgeInput{}, apperrors.New(http.StatusBadRequest, "invalid_source_type", "invalid badge source type", nil)
@@ -854,7 +1102,7 @@ func (s *Service) validateBadgeInput(ctx context.Context, input UpsertUserBadgeI
 		ProofMediaID:   proofMediaID,
 		SourceType:     sourceType,
 		SourceID:       sourceID,
-		EarnedAt:       earnedAt,
+		EarnedDate:     earnedDate,
 		Visibility:     visibility,
 		DisplayOrder:   displayOrder,
 		MetadataJSON:   cleanMetadata(input.MetadataJSON),
@@ -939,7 +1187,7 @@ func (s *Service) mapUserBadge(row profilesrepo.UserBadge) UserBadge {
 		VerifiedBy:          row.VerifiedBy,
 		SourceType:          row.SourceType,
 		SourceID:            row.SourceID,
-		EarnedAt:            row.EarnedAt,
+		EarnedDate:          row.EarnedDate,
 		Visibility:          row.Visibility,
 		DisplayOrder:        row.DisplayOrder,
 		Rarity:              row.Template.Rarity,
@@ -1160,9 +1408,14 @@ type BadgeJourneyEventPayload struct {
 	UserBadgeID        string
 	SourceType         string
 	SourceID           string
-	EarnedAt           *time.Time
+	EarnedDate         *time.Time
 	Visibility         string
 	VerificationStatus string
+}
+
+func truncateToUTCDate(value time.Time) time.Time {
+	date := value.UTC()
+	return time.Date(date.Year(), date.Month(), date.Day(), 0, 0, 0, 0, time.UTC)
 }
 
 func coarseLocation(input string) string {

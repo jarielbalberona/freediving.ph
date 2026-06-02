@@ -29,12 +29,14 @@ test("Journey contracts expose manual and generated entry shapes", () => {
     sourceType: "dive_map",
     sourceId: "user-site-1",
     visibility: "public",
+    visibilityLabel: "Members",
   };
   const response: ProfileJourneyResponse = { items: [manual, generated] };
 
   assert.equal(response.items[0]?.type, "custom");
   assert.equal(response.items[1]?.sourceType, "dive_map");
   assert.equal(response.items[1]?.sourceId, "user-site-1");
+  assert.equal(response.items[1]?.visibilityLabel, "Members");
 });
 
 test("Journey write contracts allow no dive site or media", () => {
@@ -56,7 +58,11 @@ test("Journey write contracts allow no dive site or media", () => {
 });
 
 test("Journey visibility and hide contracts expose locked states only", () => {
-  const visibilities: JourneyEntryVisibility[] = ["public", "followers", "private"];
+  const visibilities: JourneyEntryVisibility[] = [
+    "public",
+    "followers",
+    "private",
+  ];
   const hidden: JourneyEntry = {
     id: "entry-hidden",
     userId: "user-1",

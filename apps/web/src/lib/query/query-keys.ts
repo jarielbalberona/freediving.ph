@@ -400,6 +400,10 @@ export const queryKeys = {
       [...queryKeys.profile.view(username), "journey"] as const,
     diveMemories: (username: string) =>
       [...queryKeys.profile.view(username), "dive-memories"] as const,
+    diveMemoriesPages: (username: string) =>
+      [...queryKeys.profile.view(username), "dive-memories-page"] as const,
+    diveMemoriesPage: (username: string, diveSiteSlug: string) =>
+      [...queryKeys.profile.diveMemoriesPages(username), diveSiteSlug] as const,
     myDiveMemories: () =>
       [...queryKeys.profile.all, "my-dive-memories"] as const,
     myDiveMemoryTags: () =>

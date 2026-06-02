@@ -99,6 +99,29 @@ func (m *memoryProfilesRepo) GetProfileDiveMapSiteByUsername(_ context.Context, 
 	return profilesrepo.ProfileDiveMapSiteDetail{}, nil
 }
 
+func (m *memoryProfilesRepo) GetProfileDiveMemoriesPageByUsername(_ context.Context, username, diveSiteSlug, _ string) (profilesrepo.ProfileDiveMemoriesPage, error) {
+	now := time.Now().UTC()
+	return profilesrepo.ProfileDiveMemoriesPage{
+		Site: profilesrepo.DiveMemoriesPageSite{
+			DiveSiteID: "550e8400-e29b-41d4-a716-446655440092",
+			Slug:       diveSiteSlug,
+			Name:       "Napaling Reef",
+			Area:       "Panglao, Bohol",
+		},
+		Marker: profilesrepo.ProfileDiveMapMarker{
+			UserID:           "550e8400-e29b-41d4-a716-446655440099",
+			DiveSiteID:       "550e8400-e29b-41d4-a716-446655440092",
+			DiveSiteSlug:     diveSiteSlug,
+			DiveSiteName:     "Napaling Reef",
+			DiveSiteArea:     "Panglao, Bohol",
+			FirstVisitedAt:   now,
+			LastVisitedAt:    now,
+			MediaPostCount:   1,
+			LastProofAddedAt: now,
+		},
+	}, nil
+}
+
 func (m *memoryProfilesRepo) ListBadgeTemplates(_ context.Context) ([]profilesrepo.BadgeTemplate, error) {
 	return []profilesrepo.BadgeTemplate{}, nil
 }
@@ -339,6 +362,89 @@ func (s *stubProfilesService) GetProfileDiveMapSiteByUsername(_ context.Context,
 	}, nil
 }
 
+func (s *stubProfilesService) GetProfileDiveMemoriesPageByUsername(_ context.Context, username, diveSiteSlug, viewerUserID string) (profilesservice.ProfileDiveMemoriesPage, error) {
+	now := time.Now().UTC()
+	isOwner := viewerUserID == "550e8400-e29b-41d4-a716-446655440011"
+	return profilesservice.ProfileDiveMemoriesPage{
+		Profile: profilesservice.DiveMemoriesPageProfile{
+			ID:            "550e8400-e29b-41d4-a716-446655440011",
+			Username:      username,
+			DisplayName:   "Member User",
+			AvatarURL:     "https://example.com/avatar.jpg",
+			ViewerIsOwner: isOwner,
+		},
+		Site: profilesservice.DiveMemoriesPageSite{
+			DiveSiteID: "550e8400-e29b-41d4-a716-446655440092",
+			Slug:       diveSiteSlug,
+			Name:       "Napaling Reef",
+			Area:       "Panglao, Bohol",
+		},
+		Entry: profilesservice.DiveMemoriesPageEntry{
+			FirstProofAt:            now,
+			LastProofAt:             now,
+			LastUpdatedAt:           now,
+			ProofCount:              1,
+			MemoryCount:             1,
+			MediaCount:              2,
+			TextCount:               0,
+			ViewerCanCreateMemory:   isOwner,
+			ViewerCanManageMemories: isOwner,
+		},
+		ProofItems: []profilesservice.DiveMemoriesPageProofItem{{
+			ID:            "550e8400-e29b-41d4-a716-446655440094",
+			Kind:          "proof_media_post",
+			PostID:        "550e8400-e29b-41d4-a716-446655440093",
+			MediaItemID:   "550e8400-e29b-41d4-a716-446655440094",
+			MediaObjectID: "550e8400-e29b-41d4-a716-446655440095",
+			Media: profilesservice.DiveMemoriesPageMediaAsset{
+				ID:       "550e8400-e29b-41d4-a716-446655440095",
+				URL:      "https://example.com/proof.jpg",
+				MimeType: "image/jpeg",
+				Width:    1200,
+				Height:   900,
+				Type:     "photo",
+			},
+			Caption:    "Proof of dive",
+			CreatedAt:  now,
+			ProofLabel: "Proof post",
+		}},
+		MemoryItems: []profilesservice.DiveMemoriesPageMemoryItem{{
+			ID:   "550e8400-e29b-41d4-a716-446655440096",
+			Kind: "dive_memory",
+			Author: profilesservice.DiveMemoriesPageMemoryAuthor{
+				UserID:      "550e8400-e29b-41d4-a716-446655440011",
+				Username:    username,
+				DisplayName: "Member User",
+				AvatarURL:   "https://example.com/avatar.jpg",
+			},
+			Title:      "Clear water memory",
+			Visibility: "public",
+			OccurredAt: now,
+			CreatedAt:  now,
+			UpdatedAt:  now,
+			Attachments: []profilesservice.DiveMemoriesPageMemoryAttachment{{
+				ID:            "550e8400-e29b-41d4-a716-446655440097",
+				MediaObjectID: "550e8400-e29b-41d4-a716-446655440098",
+				Media: profilesservice.DiveMemoriesPageMediaAsset{
+					ID:       "550e8400-e29b-41d4-a716-446655440098",
+					URL:      "https://example.com/memory.jpg",
+					MimeType: "image/jpeg",
+					Width:    1080,
+					Height:   1080,
+					Type:     "photo",
+				},
+				CreatedAt: now,
+			}},
+			ViewerCanEdit:   isOwner,
+			ViewerCanDelete: isOwner,
+		}},
+		Limits: profilesservice.DiveMemoriesPageLimits{
+			ProofItems:  120,
+			MemoryItems: 20,
+		},
+	}, nil
+}
+
 func TestProfilesEndpointsAuthPermissionAndSuccess(t *testing.T) {
 	v := validatex.New()
 	h := New(&stubProfilesService{}, v)
@@ -498,6 +604,37 @@ func TestProfileDiveMapEndpointsReturnMarkersAndProofMedia(t *testing.T) {
 	}
 	if detailBody.Memories[0].Title != "Clear water memory" {
 		t.Fatalf("expected marker memory preview, got %+v", detailBody.Memories)
+	}
+}
+
+func TestProfileDiveMemoriesPageEndpointReturnsDedicatedSlugBasedContract(t *testing.T) {
+	v := validatex.New()
+	h := New(&stubProfilesService{}, v)
+	router := chi.NewRouter()
+	router.Get("/profiles/{username}/dive-memories/{diveSiteSlug}", h.GetProfileDiveMemoriesPageByUsername)
+
+	req := httptest.NewRequest(http.MethodGet, "/profiles/member/dive-memories/napaling-reef", nil)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200 for profile dive memories page, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var body ProfileDiveMemoriesPageResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+		t.Fatalf("decode profile dive memories page response: %v", err)
+	}
+	if body.Site.Slug != "napaling-reef" || body.Profile.Username != "member" {
+		t.Fatalf("expected slug-based page metadata, got %+v", body)
+	}
+	if len(body.ProofItems) != 1 || body.ProofItems[0].Kind != "proof_media_post" {
+		t.Fatalf("expected proof items with explicit discriminator, got %+v", body.ProofItems)
+	}
+	if len(body.MemoryItems) != 1 || body.MemoryItems[0].Kind != "dive_memory" {
+		t.Fatalf("expected memory items with explicit discriminator, got %+v", body.MemoryItems)
+	}
+	if len(body.MemoryItems[0].Attachments) != 1 || body.MemoryItems[0].Attachments[0].Media.URL == "" {
+		t.Fatalf("expected resolved memory attachments, got %+v", body.MemoryItems[0].Attachments)
 	}
 }
 

@@ -42,21 +42,22 @@ func (s *Service) WithNow(now func() time.Time) *Service {
 }
 
 type JourneyEntry struct {
-	ID           string
-	UserID       string
-	Type         string
-	Title        string
-	Body         string
-	DiveSiteID   string
-	SourceType   string
-	SourceID     string
-	CoverMediaID string
-	Visibility   string
-	State        string
-	OccurredAt   time.Time
-	CreatedAt    time.Time
-	UpdatedAt    time.Time
-	MediaIDs     []string
+	ID              string
+	UserID          string
+	Type            string
+	Title           string
+	Body            string
+	DiveSiteID      string
+	SourceType      string
+	SourceID        string
+	CoverMediaID    string
+	Visibility      string
+	VisibilityLabel string
+	State           string
+	OccurredAt      time.Time
+	CreatedAt       time.Time
+	UpdatedAt       time.Time
+	MediaIDs        []string
 }
 
 type ListProfileJourneyInput struct {
@@ -384,20 +385,21 @@ func mapEntries(rows []journeyrepo.JourneyEntry) []JourneyEntry {
 
 func mapEntry(row journeyrepo.JourneyEntry) JourneyEntry {
 	return JourneyEntry{
-		ID:           row.ID,
-		UserID:       row.UserID,
-		Type:         row.Type,
-		Title:        row.Title,
-		Body:         row.Body,
-		DiveSiteID:   row.DiveSiteID,
-		SourceType:   row.SourceType,
-		SourceID:     row.SourceID,
-		CoverMediaID: row.CoverMediaID,
-		Visibility:   row.Visibility,
-		State:        row.State,
-		OccurredAt:   row.OccurredAt,
-		CreatedAt:    row.CreatedAt,
-		UpdatedAt:    row.UpdatedAt,
-		MediaIDs:     append([]string(nil), row.MediaIDs...),
+		ID:              row.ID,
+		UserID:          row.UserID,
+		Type:            row.Type,
+		Title:           row.Title,
+		Body:            row.Body,
+		DiveSiteID:      row.DiveSiteID,
+		SourceType:      row.SourceType,
+		SourceID:        row.SourceID,
+		CoverMediaID:    row.CoverMediaID,
+		Visibility:      row.Visibility,
+		VisibilityLabel: row.VisibilityLabel,
+		State:           row.State,
+		OccurredAt:      row.OccurredAt,
+		CreatedAt:       row.CreatedAt,
+		UpdatedAt:       row.UpdatedAt,
+		MediaIDs:        append([]string(nil), row.MediaIDs...),
 	}
 }

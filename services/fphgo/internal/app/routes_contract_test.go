@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 
@@ -730,6 +731,61 @@ func (s *contractProfilesService) GetProfileDiveMapByUsername(_ context.Context,
 
 func (s *contractProfilesService) GetProfileDiveMapSiteByUsername(_ context.Context, _ string, _ string, _ string) (profilesservice.ProfileDiveMapSiteDetail, error) {
 	return profilesservice.ProfileDiveMapSiteDetail{}, nil
+}
+
+func (s *contractProfilesService) GetProfileDiveMemoriesPageByUsername(_ context.Context, username, diveSiteSlug, viewerUserID string) (profilesservice.ProfileDiveMemoriesPage, error) {
+	now := time.Now().UTC()
+	return profilesservice.ProfileDiveMemoriesPage{
+		Profile: profilesservice.DiveMemoriesPageProfile{
+			ID:            "550e8400-e29b-41d4-a716-446655440099",
+			Username:      username,
+			DisplayName:   "Member User",
+			ViewerIsOwner: viewerUserID == "550e8400-e29b-41d4-a716-446655440099",
+		},
+		Site: profilesservice.DiveMemoriesPageSite{
+			DiveSiteID: "550e8400-e29b-41d4-a716-446655440092",
+			Slug:       diveSiteSlug,
+			Name:       "Napaling Reef",
+			Area:       "Panglao, Bohol",
+		},
+		Entry: profilesservice.DiveMemoriesPageEntry{
+			FirstProofAt:  now,
+			LastProofAt:   now,
+			LastUpdatedAt: now,
+			ProofCount:    1,
+			MemoryCount:   1,
+			MediaCount:    2,
+			TextCount:     0,
+		},
+		ProofItems: []profilesservice.DiveMemoriesPageProofItem{{
+			ID:   "550e8400-e29b-41d4-a716-446655440094",
+			Kind: "proof_media_post",
+			Media: profilesservice.DiveMemoriesPageMediaAsset{
+				ID:       "550e8400-e29b-41d4-a716-446655440095",
+				URL:      "https://example.com/proof.jpg",
+				MimeType: "image/jpeg",
+				Width:    1200,
+				Height:   900,
+				Type:     "photo",
+			},
+			CreatedAt:  now,
+			ProofLabel: "Proof post",
+		}},
+		MemoryItems: []profilesservice.DiveMemoriesPageMemoryItem{{
+			ID:   "550e8400-e29b-41d4-a716-446655440096",
+			Kind: "dive_memory",
+			Author: profilesservice.DiveMemoriesPageMemoryAuthor{
+				UserID:   "550e8400-e29b-41d4-a716-446655440099",
+				Username: username,
+			},
+			Title:      "Clear water memory",
+			Visibility: "public",
+			OccurredAt: now,
+			CreatedAt:  now,
+			UpdatedAt:  now,
+		}},
+		Limits: profilesservice.DiveMemoriesPageLimits{ProofItems: 120, MemoryItems: 20},
+	}, nil
 }
 
 func (s *contractProfilesService) GetMyBadges(_ context.Context, _ string) (profilesservice.ProfileBadges, error) {

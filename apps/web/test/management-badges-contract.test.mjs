@@ -41,6 +41,9 @@ test("management sidebar includes badge credentials nav item", () => {
 test("badge management page uses a dialog trigger and no card shells", () => {
   assert.ok(badgePageSource.includes("Add Badge & Credentials"));
   assert.ok(badgePageSource.includes("Back to profile"));
+  assert.ok(badgePageSource.includes("Earned date"));
+  assert.ok(badgePageSource.includes('type="date"'));
+  assert.ok(badgePageSource.includes("earnedDate: form.earnedDate"));
   assert.ok(badgePageSource.includes("<Dialog open={dialogOpen}"));
   assert.ok(badgePageSource.includes("filter((item) => !item.isSystem)"));
   assert.ok(!badgePageSource.includes("<Card>"));

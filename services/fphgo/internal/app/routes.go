@@ -375,6 +375,7 @@ func registerPublicProfileRoutes(r chi.Router, h *profileshttp.Handlers) {
 	r.Get("/v1/profiles/{username}/diving", h.GetProfileDivingByUsername)
 	r.Get("/v1/profiles/{username}/dive-map", h.GetProfileDiveMapByUsername)
 	r.Get("/v1/profiles/{username}/dive-map/{siteID}", h.GetProfileDiveMapSiteByUsername)
+	r.Get("/v1/profiles/{username}/dive-memories/{diveSiteSlug}", h.GetProfileDiveMemoriesPageByUsername)
 	r.Get("/v1/profiles/{username}/badges", h.GetProfileBadgesByUsername)
 }
 

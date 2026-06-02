@@ -11,6 +11,7 @@ import {
   Award,
   CalendarClock,
   Grid3X3,
+  HeartHandshake,
   IdCard,
   MapPinned,
   MessageCircle,
@@ -53,7 +54,7 @@ type ProfileTabValue =
   | "posts"
   | "badges"
   | "diving"
-  | "dive-map"
+  | "dive-memories"
   | "dive-journey"
   | "dive-passport";
 
@@ -61,7 +62,7 @@ const profileTabValues: ProfileTabValue[] = [
   "posts",
   "badges",
   "diving",
-  "dive-map",
+  "dive-memories",
   "dive-journey",
   "dive-passport",
 ];
@@ -74,7 +75,7 @@ const profileTabItems: Array<{
   { value: "posts", label: "Posts", Icon: Grid3X3 },
   { value: "badges", label: "Badges", Icon: Award },
   { value: "diving", label: "Diving", Icon: Waves },
-  { value: "dive-map", label: "Dive Map", Icon: MapPinned },
+  { value: "dive-memories", label: "Dive Memories", Icon: HeartHandshake },
   { value: "dive-journey", label: "Dive Journey", Icon: Route },
   { value: "dive-passport", label: "Dive Passport", Icon: IdCard },
 ];
@@ -167,7 +168,7 @@ export function ProfileTabs({
             isOwner={isOwner}
           />
         </TabsContent>
-        <TabsContent value="dive-map" className="px-2">
+        <TabsContent value="dive-memories" className="px-2">
           <ProfileDiveMap username={username} isOwner={isOwner} />
         </TabsContent>
         <TabsContent value="dive-journey" className="px-2">

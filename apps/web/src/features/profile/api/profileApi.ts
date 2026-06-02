@@ -2,6 +2,7 @@ import type {
   ProfileBadgesResponse,
   ProfileDiveMapResponse,
   ProfileDiveMapSiteResponse,
+  ProfileDiveMemoriesPageResponse,
   ProfileDivingResponse,
   ProfileJourneyResponse,
   ProfilePassportResponse,
@@ -10,6 +11,7 @@ import type {
   ProfileView,
   CreateManualJourneyEntryRequest,
   JourneyEntryResponse,
+  UpdateManualJourneyEntryRequest,
   ProfileDiveMemoriesResponse,
   CreateDiveMemoryRequest,
   DiveMemoryResponse,
@@ -53,13 +55,27 @@ export const profileApi = {
   },
 
   async getProfilePassport(username: string): Promise<ProfilePassportResponse> {
-    return profilesApi.getProfilePassportByUsername(normalizeUsername(username));
+    return profilesApi.getProfilePassportByUsername(
+      normalizeUsername(username),
+    );
   },
 
   async getProfileDiveMemories(
     username: string,
   ): Promise<ProfileDiveMemoriesResponse> {
-    return profilesApi.getProfileDiveMemoriesByUsername(normalizeUsername(username));
+    return profilesApi.getProfileDiveMemoriesByUsername(
+      normalizeUsername(username),
+    );
+  },
+
+  async getProfileDiveMemoriesPage(
+    username: string,
+    diveSiteSlug: string,
+  ): Promise<ProfileDiveMemoriesPageResponse> {
+    return profilesApi.getProfileDiveMemoriesPageByUsername(
+      normalizeUsername(username),
+      diveSiteSlug,
+    );
   },
 
   async getMyDiveMemories(): Promise<ProfileDiveMemoriesResponse> {
@@ -108,6 +124,13 @@ export const profileApi = {
     payload: CreateManualJourneyEntryRequest,
   ): Promise<JourneyEntryResponse> {
     return profilesApi.createJourneyEntry(payload);
+  },
+
+  async updateJourneyEntry(
+    entryId: string,
+    payload: UpdateManualJourneyEntryRequest,
+  ): Promise<JourneyEntryResponse> {
+    return profilesApi.updateJourneyEntry(entryId, payload);
   },
 
   async deleteJourneyEntry(entryId: string): Promise<void> {

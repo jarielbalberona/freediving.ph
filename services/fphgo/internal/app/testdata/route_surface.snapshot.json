@@ -1110,6 +1110,10 @@
     },
     {
       "method": "GET",
+      "pattern": "/v1/profiles/{username}/dive-memories/{diveSiteSlug}"
+    },
+    {
+      "method": "GET",
       "pattern": "/v1/profiles/{username}/diving"
     },
     {

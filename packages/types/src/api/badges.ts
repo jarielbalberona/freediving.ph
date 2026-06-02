@@ -81,6 +81,7 @@ export type UserBadge = {
   isSystemVerified?: boolean;
   sourceType: UserBadgeSourceType;
   sourceId?: string;
+  earnedDate?: string;
   earnedAt?: string;
   visibility: UserBadgeVisibility;
   displayOrder: number;
@@ -120,7 +121,7 @@ export type UpsertUserBadgeRequest = {
   referenceLabel?: string;
   referenceValue?: string;
   proofMediaId?: string;
-  earnedAt?: string;
+  earnedDate?: string;
   visibility?: UserBadgeVisibility;
   displayOrder?: number;
   metadataJson?: Record<string, unknown>;

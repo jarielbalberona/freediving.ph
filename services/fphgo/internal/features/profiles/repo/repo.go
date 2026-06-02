@@ -10,6 +10,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 
@@ -18,8 +19,17 @@ import (
 
 type Repo struct {
 	pool    *pgxpool.Pool
+	db      DBTX
 	queries *profilesqlc.Queries
 }
+
+type DBTX interface {
+	Query(context.Context, string, ...any) (pgx.Rows, error)
+	QueryRow(context.Context, string, ...any) pgx.Row
+	Exec(context.Context, string, ...any) (pgconn.CommandTag, error)
+}
+
+var ErrNoRows = pgx.ErrNoRows
 
 type Profile struct {
 	UserID        string
@@ -200,6 +210,60 @@ type ProfileDiveMapSiteDetail struct {
 	Memories []ProfileDiveMapMemory
 }
 
+type DiveMemoriesPageSite struct {
+	DiveSiteID string
+	Slug       string
+	Name       string
+	Area       string
+	Latitude   *float64
+	Longitude  *float64
+}
+
+type DiveMemoriesPageProofItem struct {
+	ID            string
+	PostID        string
+	MediaItemID   string
+	MediaObjectID string
+	Type          string
+	StorageKey    string
+	MimeType      string
+	Width         int32
+	Height        int32
+	Caption       string
+	CreatedAt     time.Time
+}
+
+type DiveMemoriesPageMemoryAttachment struct {
+	ID        string
+	MemoryID  string
+	MediaID   string
+	ObjectKey string
+	MimeType  string
+	Width     int32
+	Height    int32
+	CreatedAt time.Time
+}
+
+type DiveMemoriesPageMemoryItem struct {
+	ID           string
+	AuthorUserID string
+	DiveSiteID   string
+	Title        string
+	Body         string
+	Visibility   string
+	OccurredAt   time.Time
+	CreatedAt    time.Time
+	UpdatedAt    time.Time
+	Attachments  []DiveMemoriesPageMemoryAttachment
+}
+
+type ProfileDiveMemoriesPage struct {
+	Site        DiveMemoriesPageSite
+	Marker      ProfileDiveMapMarker
+	ProofItems  []DiveMemoriesPageProofItem
+	MemoryItems []DiveMemoriesPageMemoryItem
+}
+
 type BadgeTemplate struct {
 	ID           string
 	Slug         string
@@ -235,7 +299,7 @@ type UserBadge struct {
 	VerifiedBy          string
 	SourceType          string
 	SourceID            string
-	EarnedAt            *time.Time
+	EarnedDate          *time.Time
 	Visibility          string
 	DisplayOrder        int32
 	MetadataJSON        map[string]any
@@ -256,14 +320,14 @@ type UpsertUserBadgeInput struct {
 	ProofMediaID   *string
 	SourceType     string
 	SourceID       *string
-	EarnedAt       *time.Time
+	EarnedDate     *time.Time
 	Visibility     string
 	DisplayOrder   int32
 	MetadataJSON   map[string]any
 }
 
 func New(pool *pgxpool.Pool) *Repo {
-	return &Repo{pool: pool, queries: profilesqlc.New(pool)}
+	return &Repo{pool: pool, db: pool, queries: profilesqlc.New(pool)}
 }
 
 func (r *Repo) GetProfileByUserID(ctx context.Context, userID string) (Profile, error) {
@@ -1093,6 +1157,308 @@ func (r *Repo) GetProfileDiveMapSiteByUsername(ctx context.Context, username, di
 	return ProfileDiveMapSiteDetail{Marker: marker, Media: media, Memories: memories}, nil
 }
 
+func (r *Repo) GetProfileDiveMemoriesPageByUsername(ctx context.Context, username, diveSiteSlug, viewerUserID string) (ProfileDiveMemoriesPage, error) {
+	const (
+		proofLimit  int32 = 120
+		memoryLimit int32 = 20
+	)
+	const markerQuery = `
+		WITH viewer AS (
+			SELECT NULLIF($3, '')::uuid AS id
+		)
+		SELECT
+			1::bigint AS visited_site_count,
+			uds.user_id,
+			uds.dive_site_id,
+			s.slug AS dive_site_slug,
+			s.name AS dive_site_name,
+			s.area AS dive_site_area,
+			s.latitude,
+			s.longitude,
+			uds.first_post_id,
+			uds.first_visited_at,
+			uds.last_post_id,
+			uds.last_visited_at,
+			uds.media_post_count,
+			uds.visibility,
+			uds.created_at,
+			uds.updated_at
+		FROM users u
+		CROSS JOIN viewer
+		JOIN user_dive_sites uds ON uds.user_id = u.id
+		JOIN dive_sites s ON s.id = uds.dive_site_id
+		WHERE lower(u.username) = lower($1)
+		  AND u.account_status = 'active'
+		  AND lower(s.slug) = lower($2)
+		  AND s.moderation_state = 'approved'
+		  AND (
+		    uds.visibility = 'public'
+		    OR (uds.visibility = 'members' AND viewer.id IS NOT NULL)
+		    OR (uds.visibility = 'private' AND viewer.id = u.id)
+		  )
+		  AND (
+		    viewer.id IS NULL
+		    OR viewer.id = u.id
+		    OR NOT EXISTS (
+		      SELECT 1
+		      FROM user_blocks ub
+		      WHERE (ub.blocker_app_user_id = viewer.id AND ub.blocked_app_user_id = u.id)
+		         OR (ub.blocker_app_user_id = u.id AND ub.blocked_app_user_id = viewer.id)
+		    )
+		  )
+	`
+	var ignoredCount int64
+	marker, err := scanDiveMapMarker(func(dest ...any) error {
+		return r.pool.QueryRow(ctx, markerQuery, username, diveSiteSlug, viewerUserID).Scan(dest...)
+	}, &ignoredCount)
+	if err != nil {
+		return ProfileDiveMemoriesPage{}, err
+	}
+
+	const proofQuery = `
+		SELECT
+			mi.id AS media_item_id,
+			p.id AS post_id,
+			mi.id AS proof_item_id,
+			mi.media_object_id,
+			mi.type,
+			mi.storage_key,
+			mi.mime_type,
+			mi.width,
+			mi.height,
+			COALESCE(mi.caption, p.post_caption, '') AS caption,
+			mi.created_at
+		FROM media_posts p
+		JOIN media_items mi ON mi.post_id = p.id
+		JOIN dive_sites s ON s.id = p.dive_site_id
+		WHERE p.author_app_user_id = $1
+		  AND p.dive_site_id = $2
+		  AND p.deleted_at IS NULL
+		  AND s.moderation_state = 'approved'
+		  AND mi.author_app_user_id = p.author_app_user_id
+		  AND mi.dive_site_id = p.dive_site_id
+		  AND mi.status = 'active'
+		  AND mi.processing_status = 'ready'
+		  AND mi.moderation_status = 'approved'
+		  AND mi.deleted_at IS NULL
+		ORDER BY mi.created_at DESC, mi.id DESC
+		LIMIT $3
+	`
+	proofRows, err := r.pool.Query(ctx, proofQuery, toUUID(marker.UserID), toUUID(marker.DiveSiteID), proofLimit)
+	if err != nil {
+		return ProfileDiveMemoriesPage{}, err
+	}
+	defer proofRows.Close()
+
+	proofItems := make([]DiveMemoriesPageProofItem, 0)
+	for proofRows.Next() {
+		var (
+			mediaItemID pgtype.UUID
+			postID      pgtype.UUID
+			itemID      pgtype.UUID
+			objectID    pgtype.UUID
+			createdAt   pgtype.Timestamptz
+			item        DiveMemoriesPageProofItem
+		)
+		if err := proofRows.Scan(
+			&mediaItemID,
+			&postID,
+			&itemID,
+			&objectID,
+			&item.Type,
+			&item.StorageKey,
+			&item.MimeType,
+			&item.Width,
+			&item.Height,
+			&item.Caption,
+			&createdAt,
+		); err != nil {
+			return ProfileDiveMemoriesPage{}, err
+		}
+		item.ID = itemID.String()
+		item.PostID = postID.String()
+		item.MediaItemID = mediaItemID.String()
+		item.MediaObjectID = objectID.String()
+		item.CreatedAt = createdAt.Time.UTC()
+		proofItems = append(proofItems, item)
+	}
+	if err := proofRows.Err(); err != nil {
+		return ProfileDiveMemoriesPage{}, err
+	}
+
+	const memoriesQuery = `
+		WITH viewer AS (
+			SELECT NULLIF($3, '')::uuid AS id
+		)
+		SELECT
+			dm.id,
+			dm.author_user_id,
+			dm.dive_site_id,
+			dm.title,
+			dm.body,
+			dm.visibility,
+			dm.occurred_at,
+			dm.created_at,
+			dm.updated_at
+		FROM dive_memories dm
+		CROSS JOIN viewer
+		WHERE dm.author_user_id = $1
+		  AND dm.dive_site_id = $2
+		  AND dm.deleted_at IS NULL
+		  AND EXISTS (
+		    SELECT 1
+		    FROM user_dive_sites uds
+		    WHERE uds.user_id = dm.author_user_id
+		      AND uds.dive_site_id = dm.dive_site_id
+		  )
+		  AND (
+		    dm.visibility = 'public'
+		    OR (viewer.id = dm.author_user_id AND dm.visibility IN ('private', 'followers', 'tagged'))
+		    OR (
+		      dm.visibility = 'followers'
+		      AND EXISTS (
+		        SELECT 1
+		        FROM saved_users su
+		        WHERE su.viewer_app_user_id = viewer.id
+		          AND su.saved_app_user_id = dm.author_user_id
+		      )
+		    )
+		    OR (
+		      dm.visibility = 'tagged'
+		      AND EXISTS (
+		        SELECT 1
+		        FROM dive_memory_tagged_users dmtu
+		        WHERE dmtu.memory_id = dm.id
+		          AND dmtu.tagged_user_id = viewer.id
+		          AND dmtu.status = 'accepted'
+		      )
+		    )
+		  )
+		  AND (
+		    viewer.id IS NULL
+		    OR viewer.id = dm.author_user_id
+		    OR NOT EXISTS (
+		      SELECT 1
+		      FROM user_blocks ub
+		      WHERE (ub.blocker_app_user_id = viewer.id AND ub.blocked_app_user_id = dm.author_user_id)
+		         OR (ub.blocker_app_user_id = dm.author_user_id AND ub.blocked_app_user_id = viewer.id)
+		    )
+		  )
+		ORDER BY dm.occurred_at DESC, dm.id DESC
+		LIMIT $4
+	`
+	memoryRows, err := r.pool.Query(ctx, memoriesQuery, toUUID(marker.UserID), toUUID(marker.DiveSiteID), viewerUserID, memoryLimit)
+	if err != nil {
+		return ProfileDiveMemoriesPage{}, err
+	}
+	defer memoryRows.Close()
+
+	memoryItems := make([]DiveMemoriesPageMemoryItem, 0)
+	for memoryRows.Next() {
+		var (
+			id           pgtype.UUID
+			authorUserID pgtype.UUID
+			siteID       pgtype.UUID
+			occurredAt   pgtype.Timestamptz
+			createdAt    pgtype.Timestamptz
+			updatedAt    pgtype.Timestamptz
+			item         DiveMemoriesPageMemoryItem
+		)
+		if err := memoryRows.Scan(
+			&id,
+			&authorUserID,
+			&siteID,
+			&item.Title,
+			&item.Body,
+			&item.Visibility,
+			&occurredAt,
+			&createdAt,
+			&updatedAt,
+		); err != nil {
+			return ProfileDiveMemoriesPage{}, err
+		}
+		item.ID = id.String()
+		item.AuthorUserID = authorUserID.String()
+		item.DiveSiteID = siteID.String()
+		item.OccurredAt = occurredAt.Time.UTC()
+		item.CreatedAt = createdAt.Time.UTC()
+		item.UpdatedAt = updatedAt.Time.UTC()
+		memoryItems = append(memoryItems, item)
+	}
+	if err := memoryRows.Err(); err != nil {
+		return ProfileDiveMemoriesPage{}, err
+	}
+
+	if err := r.hydrateDiveMemoriesPageAttachments(ctx, memoryItems); err != nil {
+		return ProfileDiveMemoriesPage{}, err
+	}
+
+	return ProfileDiveMemoriesPage{
+		Site: DiveMemoriesPageSite{
+			DiveSiteID: marker.DiveSiteID,
+			Slug:       marker.DiveSiteSlug,
+			Name:       marker.DiveSiteName,
+			Area:       marker.DiveSiteArea,
+			Latitude:   marker.Latitude,
+			Longitude:  marker.Longitude,
+		},
+		Marker:      marker,
+		ProofItems:  proofItems,
+		MemoryItems: memoryItems,
+	}, nil
+}
+
+func (r *Repo) hydrateDiveMemoriesPageAttachments(ctx context.Context, memories []DiveMemoriesPageMemoryItem) error {
+	if len(memories) == 0 {
+		return nil
+	}
+	ids := make([]string, 0, len(memories))
+	byID := make(map[string]int, len(memories))
+	for idx, memory := range memories {
+		ids = append(ids, memory.ID)
+		byID[memory.ID] = idx
+	}
+	rows, err := r.db.Query(ctx, `
+		SELECT
+			dmm.id::text,
+			dmm.memory_id::text,
+			dmm.media_id::text,
+			mo.object_key,
+			mo.mime_type,
+			mo.width,
+			mo.height,
+			dmm.created_at
+		FROM dive_memory_media dmm
+		JOIN media_objects mo ON mo.id = dmm.media_id
+		WHERE dmm.memory_id = ANY($1::uuid[])
+		  AND mo.state = 'active'
+		ORDER BY dmm.memory_id, dmm.sort_order ASC, dmm.id ASC
+	`, uuidArray(ids))
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var attachment DiveMemoriesPageMemoryAttachment
+		if err := rows.Scan(
+			&attachment.ID,
+			&attachment.MemoryID,
+			&attachment.MediaID,
+			&attachment.ObjectKey,
+			&attachment.MimeType,
+			&attachment.Width,
+			&attachment.Height,
+			&attachment.CreatedAt,
+		); err != nil {
+			return err
+		}
+		if idx, ok := byID[attachment.MemoryID]; ok {
+			memories[idx].Attachments = append(memories[idx].Attachments, attachment)
+		}
+	}
+	return rows.Err()
+}
+
 func (r *Repo) ListBadgeTemplates(ctx context.Context) ([]BadgeTemplate, error) {
 	const q = `
 		SELECT
@@ -1256,7 +1622,7 @@ func (r *Repo) listUserBadges(ctx context.Context, userPredicate string, arg any
 			ub.verified_by,
 			ub.source_type,
 			COALESCE(ub.source_id, ''),
-			ub.earned_at,
+			COALESCE(ub.earned_date, ub.earned_at::date, ub.created_at::date),
 			ub.visibility,
 			ub.display_order,
 			ub.metadata_json,
@@ -1312,7 +1678,7 @@ func (r *Repo) CreateUserBadge(ctx context.Context, input UpsertUserBadgeInput) 
 			proof_media_id,
 			source_type,
 			source_id,
-			earned_at,
+			earned_date,
 			visibility,
 			display_order,
 			metadata_json
@@ -1337,7 +1703,7 @@ func (r *Repo) CreateUserBadge(ctx context.Context, input UpsertUserBadgeInput) 
 		uuidPtr(input.ProofMediaID),
 		defaultString(input.SourceType, "manual"),
 		input.SourceID,
-		input.EarnedAt,
+		nullableDate(input.EarnedDate),
 		defaultString(input.Visibility, "public"),
 		input.DisplayOrder,
 		metadataJSON,
@@ -1361,7 +1727,7 @@ func (r *Repo) UpdateUserBadge(ctx context.Context, input UpsertUserBadgeInput) 
 			proof_media_id = $10,
 			source_type = $11,
 			source_id = $12,
-			earned_at = COALESCE($13, earned_at),
+			earned_date = COALESCE($13, earned_date, earned_at::date, created_at::date),
 			visibility = $14,
 			display_order = $15,
 			metadata_json = $16,
@@ -1391,7 +1757,7 @@ func (r *Repo) UpdateUserBadge(ctx context.Context, input UpsertUserBadgeInput) 
 		uuidPtr(input.ProofMediaID),
 		defaultString(input.SourceType, "manual"),
 		input.SourceID,
-		input.EarnedAt,
+		nullableDate(input.EarnedDate),
 		defaultString(input.Visibility, "public"),
 		input.DisplayOrder,
 		metadataJSON,
@@ -1445,7 +1811,7 @@ func (r *Repo) GetUserBadgeByID(ctx context.Context, badgeID, userID string) (Us
 			ub.verified_by,
 			ub.source_type,
 			COALESCE(ub.source_id, ''),
-			ub.earned_at,
+			COALESCE(ub.earned_date, ub.earned_at::date, ub.created_at::date),
 			ub.visibility,
 			ub.display_order,
 			ub.metadata_json,
@@ -1588,6 +1954,25 @@ func toUUID(value string) pgtype.UUID {
 	return id
 }
 
+func nullableDate(value *time.Time) pgtype.Date {
+	if value == nil {
+		return pgtype.Date{}
+	}
+	date := value.UTC()
+	return pgtype.Date{
+		Time:  time.Date(date.Year(), date.Month(), date.Day(), 0, 0, 0, 0, time.UTC),
+		Valid: true,
+	}
+}
+
+func uuidArray(values []string) []pgtype.UUID {
+	out := make([]pgtype.UUID, 0, len(values))
+	for _, value := range values {
+		out = append(out, toUUID(value))
+	}
+	return out
+}
+
 func decodeSocials(raw []byte) (map[string]string, error) {
 	if len(raw) == 0 {
 		return map[string]string{}, nil
@@ -1641,7 +2026,7 @@ func scanUserBadge(row badgeScanner) (UserBadge, error) {
 		proofMediaID        pgtype.UUID
 		verifiedAt          pgtype.Timestamptz
 		verifiedBy          pgtype.UUID
-		earnedAt            pgtype.Timestamptz
+		earnedDate          pgtype.Date
 		createdAt           pgtype.Timestamptz
 		updatedAt           pgtype.Timestamptz
 		templateMetadataRaw []byte
@@ -1679,7 +2064,7 @@ func scanUserBadge(row badgeScanner) (UserBadge, error) {
 		&verifiedBy,
 		&item.SourceType,
 		&item.SourceID,
-		&earnedAt,
+		&earnedDate,
 		&item.Visibility,
 		&item.DisplayOrder,
 		&badgeMetadataRaw,
@@ -1704,9 +2089,9 @@ func scanUserBadge(row badgeScanner) (UserBadge, error) {
 	if verifiedBy.Valid {
 		item.VerifiedBy = verifiedBy.String()
 	}
-	if earnedAt.Valid {
-		value := earnedAt.Time.UTC()
-		item.EarnedAt = &value
+	if earnedDate.Valid {
+		value := time.Date(earnedDate.Time.Year(), earnedDate.Time.Month(), earnedDate.Time.Day(), 0, 0, 0, 0, time.UTC)
+		item.EarnedDate = &value
 	}
 	item.Template.MetadataJSON = decodeMetadata(templateMetadataRaw)
 	item.MetadataJSON = decodeMetadata(badgeMetadataRaw)

@@ -219,6 +219,243 @@ Replace manual area and coordinate entry with a map-pin flow in `apps/web`, and 
 
 ## 11. Outcomes And Follow-Ups
 
+# ExecPlan: Badge Earned Date And Journey Ordering
+
+## 1. Title
+
+Badge earned-date contract for management and Dive Journey
+
+## 2. Objective
+
+Add a date-only `earnedDate` badge field across `services/fphgo`, `packages/types`, and `apps/web`, backfill existing badge rows safely, and make synthetic Dive Journey badge entries sort by that earned date instead of badge creation time.
+
+## 3. Scope
+
+- `services/fphgo` badge schema migration, schema snapshot, profile badge DTO/service/repo flow, and synthetic Dive Journey badge query.
+- `packages/types` badge request/response contracts.
+- `apps/web` badge management form and focused contract tests.
+
+## 4. Constraints And Non-Goals
+
+- Do not touch `apps/api`.
+- Keep Dive Journey downstream/read-only; it must consume badge dates, not own them.
+- Keep badge image/CDN behavior untouched.
+- Non-goal: redesign badge/profile card UI beyond the earned-date input.
+
+## 5. Acceptance Criteria
+
+- `user_badges` has `earned_date DATE`, backfilled from `earned_at::date` or `created_at::date`, and new writes default to the current date.
+- Badge create/update JSON accepts `earnedDate` in `YYYY-MM-DD` form and rejects invalid dates.
+- Badge responses expose `earnedDate`; management form defaults it to the user’s local today and allows editing.
+- Synthetic badge Journey entries use `earned_date`, then legacy fallbacks, for `occurredAt` and ordering.
+- Focused tests cover backend request/response handling, Journey query contract, and web form wiring.
+
+## 6. Repo Evidence
+
+- Badge management page and payload builder: `apps/web/src/features/profile/pages/BadgeManagementPage.tsx`
+- Shared badge contract: `packages/types/src/api/badges.ts`
+- Badge HTTP DTO/handlers: `services/fphgo/internal/features/profiles/http/dto.go`, `services/fphgo/internal/features/profiles/http/handlers.go`
+- Badge service/repo flow: `services/fphgo/internal/features/profiles/service/service.go`, `services/fphgo/internal/features/profiles/repo/repo.go`
+- Synthetic Journey badge loader: `services/fphgo/internal/features/dive_journey/repo/repo.go`
+- Current badge metadata migration with legacy `earned_at`: `services/fphgo/db/migrations/0083_badges_future_metadata.sql`
+
+## 7. Risks And Rollback
+
+- Risk: partial migration logic can leave `earned_date` null or drift from legacy `earned_at`.
+- Risk: date parsing shortcuts can reintroduce timezone bugs by treating date-only input as RFC3339 datetimes.
+- Rollback Notes:
+  - Revert the new migration plus schema snapshot if DB validation fails.
+  - Revert badge DTO/form changes together if request contract verification fails.
+
+## 8. Milestones
+
+### Milestone 1: Schema and backend contract
+- Goal: add `earned_date`, wire create/update/read paths, and keep sane legacy fallbacks.
+- Inputs/Dependencies:
+  - `services/fphgo/db/migrations/*`
+  - `services/fphgo/internal/features/profiles/*`
+- Changes:
+  - add migration and schema snapshot update
+  - switch badge request/response contract to `earnedDate`
+  - parse and persist date-only values
+- Validation Commands:
+  - `cd services/fphgo && go test ./internal/features/profiles/...`
+- Expected Evidence:
+  - tests prove badge create/update preserve earned date
+  - DTO response includes `earnedDate`
+- Rollback Notes:
+  - revert migration and profile badge backend files as one unit
+- Status: `done`
+
+### Milestone 2: Web management form and Journey contract
+- Goal: add earned-date input in management UI and lock Journey badge ordering to earned date.
+- Inputs/Dependencies:
+  - `apps/web/src/features/profile/pages/BadgeManagementPage.tsx`
+  - `services/fphgo/internal/features/dive_journey/repo/repo.go`
+- Changes:
+  - add date input with local-today default
+  - send `earnedDate` in payloads and edit mode
+  - update Journey badge query fallbacks/order
+- Validation Commands:
+  - `pnpm --filter @freediving.ph/web type-check`
+  - `pnpm --filter @freediving.ph/web test -- management-badges-contract.test.mjs`
+- Expected Evidence:
+  - web contract test sees `Earned date` field and payload wiring
+  - Journey contract test proves `earned_date` ordering path
+- Rollback Notes:
+  - revert UI and Journey repo changes together if sorting/payload behavior regresses
+- Status: `done`
+
+## 9. Verification Plan
+
+- `cd services/fphgo && go test ./internal/features/profiles/... ./internal/features/dive_journey/...`
+- `pnpm --filter @freediving.ph/web type-check`
+- `pnpm --filter @freediving.ph/web test -- management-badges-contract.test.mjs`
+
+## 10. Progress Log
+
+- 2026-06-02: Confirmed the current repo already has legacy `earned_at TIMESTAMPTZ`, but the UI/API still treat badges as datetime-shaped metadata rather than a proper date-only earned field; synthetic Journey badge entries currently fall back to `COALESCE(ub.earned_at, ub.created_at)`.
+- 2026-06-02: Added `services/fphgo/db/migrations/0092_badge_earned_date.sql`, updated backend/web contracts to `earnedDate`, and changed synthetic badge Journey ordering to prefer `earned_date`.
+- 2026-06-02: Verified `go test ./internal/features/profiles/... ./internal/features/dive_journey/...`, `node --test test/management-badges-contract.test.mjs`, and `pnpm --filter @freediving.ph/web type-check`. `make migrate-up` no longer has the duplicate-version problem, but this environment has no reachable Postgres socket / `DB_DSN`, so live migration execution could not complete.
+
+## 11. Outcomes And Follow-Ups
+
+---
+
+# ExecPlan: Dive Memories Page Phase 1 Foundation
+
+## 1. Title
+
+Dive Memories slug-based page contract and single-source web data flow
+
+## 2. Objective
+
+Replace the current UUID-detail-plus-client-filtered-memory flow for `/dive-memories/[entrySlug]/[username]` with a dedicated slug-based page API and a single coherent DTO that preserves proof-versus-memory source boundaries.
+
+## 3. Scope
+
+- `services/fphgo` public read route, DTO, service, repo query, and tests for `GET /v1/profiles/{username}/dive-memories/{diveSiteSlug}`.
+- `packages/types` shared page DTO additions.
+- `apps/web` profile API/hook/query-key wiring and Dive Memories page data loading refactor.
+- Targeted contract/integration tests for affected Go and web surfaces.
+
+## 4. Constraints And Non-Goals
+
+- Do not touch `apps/api`.
+- Do not implement the final UI redesign, masonry, interactions, tagging management UI, or full composer UX.
+- Preserve `user_dive_sites` as the only unlock/visited-site source of truth.
+- Do not let Dive Memories create markers or inflate visited-site counts.
+
+## 5. Acceptance Criteria
+
+- Web route loads from a dedicated slug-based endpoint instead of fetching the whole Dive Map and filtering memories client-side.
+- New shared DTO explicitly distinguishes proof items from memory items.
+- Backend returns not found for missing profile, missing dive-site slug, or non-unlocked site.
+- Memory media attachments are resolved enough for display rather than returned as only UUIDs.
+- Tests cover source-boundary behavior and new route/contract wiring.
+
+## 6. Repo Evidence
+
+- Current web route is slug-shaped but only passes slug into a client component: `apps/web/src/app/dive-memories/[entrySlug]/[username]/page.tsx`.
+- Current page resolves slug by fetching all markers, then calls UUID detail API and separately renders generic memories: `apps/web/src/features/profile/pages/ProfileDiveMapEntryPage.tsx`.
+- Current generic memory UI loads all profile memories and filters by `diveSiteId` client-side: `apps/web/src/features/profile/components/ProfileDiveMemories.tsx`.
+- Current profile routes only expose `/v1/profiles/{username}/dive-map/{siteID}` for site detail: `services/fphgo/internal/app/routes.go`, `services/fphgo/internal/features/profiles/http/routes.go`.
+- Current dive-map site detail repo query already joins proof media and visible memories but is keyed by site UUID and returns underdesigned DTOs: `services/fphgo/internal/features/profiles/repo/repo.go`.
+- Current memory write path already guards that memories do not mutate Dive Map and only emit generated Journey display rows: `services/fphgo/internal/features/dive_memories/service/service.go`, `services/fphgo/internal/features/dive_memories/service/service_test.go`.
+
+## 7. Risks And Rollback
+
+- Risk: adding the new page contract in the wrong service surface creates another overlapping read path instead of replacing one.
+- Risk: route snapshot and stub-based contract tests will fail if new methods are not wired consistently across app/profile test scaffolds.
+- Risk: memory attachment hydration could overreach into a future upload/composer design if the DTO becomes too broad.
+- Rollback Notes:
+  - Revert the new page endpoint and route wiring if route/tests destabilize, while keeping old list/detail endpoints intact.
+  - Revert only the page-query refactor in web if the DTO lands cleanly but the temporary rendering breaks.
+
+## 8. Milestones
+
+### Milestone 1: Shared contract and backend page read
+- Goal:
+  - Add the page-shaped DTO and backend slug-based read endpoint.
+- Inputs/Dependencies:
+  - `packages/types/src/api/dive-memories.ts`
+  - `services/fphgo/internal/features/profiles/{http,service,repo}`
+  - `services/fphgo/internal/app/routes.go`
+- Changes:
+  - add explicit proof/memory page DTOs
+  - add public route `GET /v1/profiles/{username}/dive-memories/{diveSiteSlug}`
+  - add slug-based repo/service read path with resolved memory media attachments
+- Validation Commands:
+  - `cd services/fphgo && go test ./internal/features/profiles/... ./internal/app/...`
+  - `pnpm --filter @freediving.ph/types test`
+- Expected Evidence:
+  - route returns discriminated proof and memory items
+  - missing/unlocked-site cases return safe not found behavior
+- Rollback Notes:
+  - revert the new route and DTO additions together if the contract shape proves wrong
+- Status: `pending`
+
+### Milestone 2: Web page single-source refactor
+- Goal:
+  - Make the Dive Memories page consume the dedicated endpoint directly.
+- Inputs/Dependencies:
+  - `apps/web/src/features/profiles/api/profiles.ts`
+  - `apps/web/src/features/profile/{api,hooks,pages}`
+  - `apps/web/src/lib/{api,fphgo-routes,query}`
+- Changes:
+  - add route helper + profile API client + query hook/key
+  - remove page dependency on full Dive Map fetch and generic profile-memory fetch for this route
+  - keep temporary page UI roughly intact but sourced from the page DTO only
+- Validation Commands:
+  - `pnpm --filter @freediving.ph/web test -- profile-dive-memories-contract.test.mjs`
+  - `pnpm --filter @freediving.ph/web type-check`
+  - `pnpm --filter @freediving.ph/web lint`
+- Expected Evidence:
+  - page reads one dedicated DTO
+  - tests no longer find old whole-map or profile-memory filtering path
+- Rollback Notes:
+  - revert only the page refactor if backend contract is valid but rendering regresses
+- Status: `pending`
+
+### Milestone 3: Verification and residual-risk pass
+- Goal:
+  - Run targeted checks, update route snapshot if necessary, and document remaining gaps.
+- Inputs/Dependencies:
+  - updated Go and web code from milestones 1-2
+- Changes:
+  - add or refresh test expectations
+  - run narrow verification and `git diff --check`
+- Validation Commands:
+  - `cd services/fphgo && go test ./internal/features/profiles/... ./internal/app/...`
+  - `pnpm --filter @freediving.ph/types test`
+  - `pnpm --filter @freediving.ph/web test -- profile-dive-memories-contract.test.mjs`
+  - `pnpm --filter @freediving.ph/web type-check`
+  - `pnpm --filter @freediving.ph/web lint`
+  - `git diff --check`
+- Expected Evidence:
+  - checks pass or blockers are isolated and documented
+- Rollback Notes:
+  - do not revert unrelated dirty-worktree changes while isolating failures
+- Status: `pending`
+
+## 9. Verification Plan
+
+- `cd services/fphgo && go test ./internal/features/profiles/... ./internal/app/...`
+- `pnpm --filter @freediving.ph/types test`
+- `pnpm --filter @freediving.ph/web test -- profile-dive-memories-contract.test.mjs`
+- `pnpm --filter @freediving.ph/web type-check`
+- `pnpm --filter @freediving.ph/web lint`
+- `git diff --check`
+
+## 10. Progress Log
+
+- 2026-06-02: Confirmed the current web route is slug-shaped but resolves through full Dive Map fetch plus UUID detail fetch, then separately loads generic memories for the same site.
+- 2026-06-02: Chose the profile surface as the owner for the new page read endpoint because the contract mixes proof-backed visited-site data with memory data and should not be hidden behind the generic memory list API.
+
+## 11. Outcomes And Follow-Ups
+
+- Pending implementation.
+
 ---
 
 # ExecPlan: Local AI Memory And Autonomous Initiative Runner V1

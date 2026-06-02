@@ -349,8 +349,11 @@ func TestProfileDiveMapSiteMemoriesAreGatedByUserDiveSites(t *testing.T) {
 	taggedMemoryID := "94000000-0000-4000-8000-000000000002"
 	pendingMemoryID := "94000000-0000-4000-8000-000000000003"
 	lockedMemoryID := "94000000-0000-4000-8000-000000000004"
+	memoryMediaObjectID := "96000000-0000-4000-8000-000000000099"
 	ownerUsername := fmt.Sprintf("map_memory_owner_%d", nonce)
 	taggedUsername := fmt.Sprintf("map_memory_tagged_%d", nonce)
+	siteSlug := fmt.Sprintf("map-memory-site-%d", nonce)
+	lockedSiteSlug := fmt.Sprintf("map-memory-locked-%d", nonce)
 
 	defer func() {
 		_, _ = pool.Exec(ctx, `DELETE FROM users WHERE id IN ($1, $2)`, ownerID, taggedID)
@@ -359,12 +362,19 @@ func TestProfileDiveMapSiteMemoriesAreGatedByUserDiveSites(t *testing.T) {
 
 	seedProfileMapUser(t, ctx, pool, ownerID, ownerUsername)
 	seedProfileMapUser(t, ctx, pool, taggedID, taggedUsername)
-	seedProfileMapSite(t, ctx, pool, siteID, fmt.Sprintf("map-memory-site-%d", nonce))
-	seedProfileMapSite(t, ctx, pool, lockedSiteID, fmt.Sprintf("map-memory-locked-%d", nonce))
+	seedProfileMapSite(t, ctx, pool, siteID, siteSlug)
+	seedProfileMapSite(t, ctx, pool, lockedSiteID, lockedSiteSlug)
 	seedProfileMapProof(t, ctx, pool, ownerPostID, "95000000-0000-4000-8000-000000000001", "96000000-0000-4000-8000-000000000001", ownerID, siteID)
 	seedProfileMapProof(t, ctx, pool, taggedPostID, "95000000-0000-4000-8000-000000000002", "96000000-0000-4000-8000-000000000002", taggedID, siteID)
 	insertUserDiveSite(t, ctx, pool, ownerID, siteID, ownerPostID)
 	insertUserDiveSite(t, ctx, pool, taggedID, siteID, taggedPostID)
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO media_objects (id, owner_app_user_id, context_type, object_key, mime_type, size_bytes, width, height, state)
+		VALUES ($1, $2, 'profile_feed', $3, 'image/jpeg', 2048, 1080, 1080, 'active')
+		ON CONFLICT (id) DO NOTHING
+	`, memoryMediaObjectID, ownerID, memoryMediaObjectID+".jpg"); err != nil {
+		t.Fatalf("seed memory media object: %v", err)
+	}
 
 	if _, err := pool.Exec(ctx, `
 		INSERT INTO dive_memories (id, author_user_id, dive_site_id, title, body, visibility, occurred_at)
@@ -383,6 +393,12 @@ func TestProfileDiveMapSiteMemoriesAreGatedByUserDiveSites(t *testing.T) {
 			($2, $3, 'pending')
 	`, taggedMemoryID, pendingMemoryID, taggedID); err != nil {
 		t.Fatalf("insert memory tags: %v", err)
+	}
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO dive_memory_media (memory_id, media_id, sort_order)
+		VALUES ($1, $2, 0)
+	`, ownerMemoryID, memoryMediaObjectID); err != nil {
+		t.Fatalf("insert memory media: %v", err)
 	}
 
 	ownerMap, err := repo.GetProfileDiveMapByUsername(ctx, ownerUsername, ownerID)
@@ -410,6 +426,39 @@ func TestProfileDiveMapSiteMemoriesAreGatedByUserDiveSites(t *testing.T) {
 	}
 	if !titles["Tagged accepted memory"] || titles["Pending hidden memory"] || titles["Locked site memory"] {
 		t.Fatalf("expected only accepted tagged same-site memory on tagged marker, got %+v", taggedDetail.Memories)
+	}
+
+	ownerPage, err := repo.GetProfileDiveMemoriesPageByUsername(ctx, ownerUsername, siteSlug, ownerID)
+	if err != nil {
+		t.Fatalf("owner dive memories page: %v", err)
+	}
+	if ownerPage.Marker.MediaPostCount != 1 || len(ownerPage.ProofItems) != 1 || len(ownerPage.MemoryItems) != 3 {
+		t.Fatalf("expected dedicated page to return unlocked proof and owner memories only, got %+v", ownerPage)
+	}
+	foundResolvedAttachment := false
+	for _, memory := range ownerPage.MemoryItems {
+		if memory.Title == "Owner marker memory" && len(memory.Attachments) == 1 {
+			foundResolvedAttachment = true
+		}
+	}
+	if !foundResolvedAttachment {
+		t.Fatalf("expected resolved memory attachments on page contract, got %+v", ownerPage.MemoryItems)
+	}
+
+	taggedViewerPage, err := repo.GetProfileDiveMemoriesPageByUsername(ctx, ownerUsername, siteSlug, taggedID)
+	if err != nil {
+		t.Fatalf("tagged viewer dive memories page: %v", err)
+	}
+	taggedViewerTitles := map[string]bool{}
+	for _, memory := range taggedViewerPage.MemoryItems {
+		taggedViewerTitles[memory.Title] = true
+	}
+	if !taggedViewerTitles["Owner marker memory"] || !taggedViewerTitles["Tagged accepted memory"] || taggedViewerTitles["Pending hidden memory"] {
+		t.Fatalf("expected only public or accepted tagged owner memories for tagged viewer, got %+v", taggedViewerPage.MemoryItems)
+	}
+
+	if _, err := repo.GetProfileDiveMemoriesPageByUsername(ctx, ownerUsername, lockedSiteSlug, ownerID); err == nil {
+		t.Fatal("expected locked-site memories page to stay unavailable without user_dive_sites unlock")
 	}
 }
 
