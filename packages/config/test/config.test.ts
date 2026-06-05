@@ -10,7 +10,7 @@ import {
 } from "../src/index.ts";
 
 test("config exposes app name", () => {
-  assert.equal(APP_NAME, "freediving.ph");
+  assert.equal(APP_NAME, "Freediving Philippines");
 });
 
 test("config exposes Philippine market defaults", () => {
