@@ -1,7 +1,7 @@
 # Messaging State Model v1
 
 > Status: legacy conversation-state contract (`/v1/messages/inbox|requests|conversations`).
-> Current thread realtime contract lives in `docs/messaging-threads-v1.md`.
+> Current thread realtime contract lives in `services/fphgo/docs/messaging-threads-v1.md`.
 
 ## Conversation States
 

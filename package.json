@@ -13,8 +13,6 @@
     "format": "biome format --write .",
     "test": "pnpm -r --if-present test",
     "preflight": "pnpm typecheck && pnpm lint && pnpm test && pnpm build",
-    "ai:run": "node tools/ai-runner/index.mjs",
-    "test:ai-runner": "node --test tools/ai-runner/*.test.mjs",
     "dev:web": "pnpm --filter @freediving.ph/web dev",
     "dev:go": "cd services/fphgo && make dev",
     "build:web": "pnpm --filter @freediving.ph/web build",

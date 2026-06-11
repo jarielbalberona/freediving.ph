@@ -62,5 +62,6 @@ Verified examples:
 - All API work belongs in `services/fphgo`.
 - Do not add workspace-only env assumptions into shared packages.
 
-## ExecPlans
-- For complex or risky work, create/update an ExecPlan using `./.agent/PLANS.md`.
+## Planning
+- Keep planning in chat/ticket/PR context or temporary parent `.ai/state/` files only during active work.
+- Do not recreate project-local `.agent/` planning files.

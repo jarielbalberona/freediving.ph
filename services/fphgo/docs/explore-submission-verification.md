@@ -297,10 +297,11 @@ cd services/fphgo && go test ./internal/features/explore/... -v -count=1
 
 ### 8.3 MVP Release Checklist
 
-**File:** `docs/checklist/mvp1releaset.md`
+**File:** `project-canon/operations/verification-profile.md`
 
 - Section 1.4 (lines 107-109): "Members can submit a dive site into a pending moderation queue"; "Submitters can view their own submission list/detail and moderation status"; "Moderators can review pending dive sites and approve or reject them"
 - explore_doc link: `services/fphgo/docs/explore-v1.md`
+- project verification baseline: `project-canon/operations/verification-profile.md`
 
 ---
 

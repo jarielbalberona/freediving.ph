@@ -9,10 +9,11 @@ This directory is the curated authoritative source of truth for the project.
 
 ## Status
 
-Baseline seeded from current repo inspection and high-signal repo entry files.
+Baseline seeded from current repo inspection and then expanded with curated migration from legacy root docs.
 
 - Source: current repo inspection unless a file explicitly says it was migrated from legacy root docs.
 - Validation status: baseline only, not a full architecture or runtime audit.
+- Root `docs/` is no longer a normal truth surface for this adopted project.
 
 ## Structure
 

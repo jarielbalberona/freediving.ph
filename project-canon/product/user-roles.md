@@ -1,14 +1,34 @@
 # User Roles
 
-Status: unknown / to be confirmed
+Status: migrated legacy-doc baseline / needs code confirmation
 
-Source: current repo inspection.
+Primary sources:
 
-The repo clearly uses Clerk-backed authentication and contains moderation/admin-oriented docs and flows, but a bounded current role model has not yet been verified from code in this adoption pass.
+- current repo inspection
+- migrated from legacy root docs; validation status: needs code/runtime confirmation
 
-Safe current statement:
+Bounded role model currently captured in canon:
 
-- authenticated users exist
-- web and backend surfaces likely enforce additional role/permission boundaries
+- `guest`
+  - unauthenticated actor
+  - can access only public surfaces
 
-Do not infer a complete role matrix from legacy root docs without later validation.
+- `member`
+  - authenticated community user
+  - owns normal social, messaging, group, event, and diving participation flows
+
+- `moderator`
+  - can review reports, apply moderation actions, and reveal sensitive Chika identity only where policy allows
+
+- `admin`
+  - broad moderation and platform control role
+
+Scoped roles:
+
+- group roles: `owner`, `group_moderator`, `member`
+
+Important boundaries:
+
+- global role checks do not replace row ownership or participation checks
+- account-status deny and block deny apply before feature-level allow
+- missing context must fail closed

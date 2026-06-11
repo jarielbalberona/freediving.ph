@@ -1,8 +1,11 @@
 # Deployment
 
-Status: baseline / to be confirmed
+Status: baseline plus migrated legacy-doc truth / needs code confirmation
 
-Source: current repo inspection.
+Primary sources:
+
+- current repo inspection
+- migrated from legacy root docs; validation status: needs code/runtime confirmation
 
 Current deploy/config signals:
 
@@ -11,4 +14,9 @@ Current deploy/config signals:
 - separate web and Go API runtime surfaces
 - separate CDN worker/runtime surface
 
-This seed pass does not yet claim a fully validated production deployment model.
+Deployment expectations promoted into canon:
+
+- PR checks should include typecheck, lint, and tests
+- migration execution and rollback planning are part of the deployment boundary
+- health/readiness checks are expected operational proof points
+- public SEO post-deploy verification includes sitemap, robots, ads.txt, canonical metadata, and noindex/index behavior on intended routes

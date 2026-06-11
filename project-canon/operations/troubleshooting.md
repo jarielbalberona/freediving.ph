@@ -1,10 +1,13 @@
 # Troubleshooting
 
-Status: baseline / to be confirmed
+Status: baseline plus migrated legacy-doc truth / needs code confirmation
 
-Source: current repo inspection.
+Primary sources:
 
-High-signal repo-level checks currently exposed:
+- current repo inspection
+- migrated from legacy root docs; validation status: needs code/runtime confirmation
+
+High-signal repo-level checks:
 
 - `pnpm typecheck`
 - `pnpm lint`
@@ -13,4 +16,8 @@ High-signal repo-level checks currently exposed:
 - workspace-targeted `pnpm --filter ...`
 - Go-specific commands such as `pnpm test:go`, `pnpm sqlc:go`, and `pnpm migrate:go`
 
-This seed pass does not yet promote detailed operational runbooks from legacy root docs.
+Operational runbook expectations promoted into canon:
+
+- incident handling should use severity levels, explicit containment, and factual checkpoint updates
+- backup/restore drills should validate schema drift, critical table counts, readiness endpoints, and key authenticated flows
+- moderation operations must confirm placeholder rendering, public suppression, and audit-log creation after enforcement

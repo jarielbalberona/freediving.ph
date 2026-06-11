@@ -1,6 +1,6 @@
 # Messaging v1
 
-> Status: legacy conversation routes. Thread routes and realtime events are documented in `docs/messaging-threads-v1.md`.
+> Status: legacy conversation routes. Thread routes and realtime events are documented in `services/fphgo/docs/messaging-threads-v1.md`.
 
 ## Product Rules
 
