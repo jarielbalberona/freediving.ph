@@ -1,5 +1,18 @@
 # AGENTS.md
 
+## Workspace Contract
+
+This project is onboarded into the parent `ai-development` workspace.
+
+- Read parent `.ai/core/` workflow rules when available.
+- Read `.ai-project.md` before task work.
+- Use `.ai-local/core-snapshot.md` only as generated fallback when parent `.ai/` is unavailable.
+- `project-canon/` is the authoritative durable project truth.
+- root `docs/` is legacy by workspace policy and should not be treated as a normal source-of-truth surface during adoption.
+- Do not create project-local `.ai/`, `.agent/`, or `.codex/`.
+- Final task reports belong in chat/ticket/PR, not random repo markdown.
+- Appropriate verification is default. E2E is escalation, not default.
+
 ## Monorepo Map
 - `apps/web`: Next.js App Router frontend (`src/app`) with shared UI/components, hooks, and feature modules.
 - `services/fphgo`: Go API service; canonical backend for all new API work.
