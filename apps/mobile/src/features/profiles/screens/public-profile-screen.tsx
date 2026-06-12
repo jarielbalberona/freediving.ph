@@ -47,8 +47,15 @@ import { safeProfileUsername } from "@/features/profiles/lib/profile-format";
 const firstParam = (value: string | string[] | undefined) =>
   Array.isArray(value) ? value[0] : value;
 
+const isTruthyParam = (value: string | string[] | undefined) => {
+  const candidate = firstParam(value);
+  return candidate === "1" || candidate === "true";
+};
+
 export function PublicProfileScreen() {
   const params = useLocalSearchParams<{
+    openJourneyComposer?: string | string[];
+    openPassportCustomize?: string | string[];
     tab?: string | string[];
     username?: string | string[];
   }>();
@@ -140,6 +147,8 @@ export function PublicProfileScreen() {
       <MobileSection>
         <ProfileHeader
           isOwner={isOwner}
+          badgeCategorySummaries={badgesQuery.data?.categorySummaries ?? []}
+          onBadgeSummaryPress={() => setActiveTab("badges")}
           profile={profile as HeaderProfile}
           stats={headerStats}
         />
@@ -218,6 +227,7 @@ export function PublicProfileScreen() {
               isLoading={journeyQuery.isLoading}
               isOwner={isOwner}
               username={profile.username}
+              initialComposerOpen={isTruthyParam(params.openJourneyComposer)}
             />
           </MobileSection>
         ) : null}
@@ -230,13 +240,14 @@ export function PublicProfileScreen() {
                 ...(badgesQuery.data?.autoStats ?? []),
               ]}
               data={passportQuery.data}
-              error={passportQuery.error}
-              isLoading={passportQuery.isLoading}
-              isOwner={isOwner}
-              username={profile.username}
-            />
-          </MobileSection>
-        ) : null}
+            error={passportQuery.error}
+            isLoading={passportQuery.isLoading}
+            isOwner={isOwner}
+            username={profile.username}
+            initialCustomizeOpen={isTruthyParam(params.openPassportCustomize)}
+          />
+        </MobileSection>
+      ) : null}
       </MobileScrollScreen>
     </>
   );

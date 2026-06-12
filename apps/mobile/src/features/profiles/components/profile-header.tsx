@@ -2,10 +2,11 @@ import { Link } from "expo-router";
 import { Pressable, Text, View } from "react-native";
 
 import { UserIdentityRow } from "@/components/social";
+import { ProfileBadgeSummaryRow } from "@/features/profiles/components/profile-badge-summary-row";
 import { MobileButton } from "@/components/ui/mobile-button";
 import { certLevelLabel, profileBio, profileHandle } from "@/features/profiles/lib/profile-format";
 
-import type { Profile, ProfileView } from "@freediving.ph/types";
+import type { BadgeCategorySummary, Profile, ProfileView } from "@freediving.ph/types";
 
 type HeaderProfile = Profile | ProfileView;
 
@@ -21,10 +22,14 @@ export function ProfileHeader({
   isOwner,
   onEdit,
   profile,
+  badgeCategorySummaries = [],
+  onBadgeSummaryPress,
   stats,
 }: {
   isOwner: boolean;
   onEdit?: () => void;
+  badgeCategorySummaries?: BadgeCategorySummary[];
+  onBadgeSummaryPress?: (category: string) => void;
   profile: HeaderProfile;
   stats: ProfileStat[];
 }) {
@@ -47,9 +52,15 @@ export function ProfileHeader({
       <UserIdentityRow
         avatarUrl={profile.avatarUrl}
         bottomSlot={
-          <Text className="mt-2 text-sm leading-6 text-muted-foreground">
-            {profileBio(profile)}
-          </Text>
+          <View className="gap-2">
+            <Text className="text-sm leading-6 text-muted-foreground">
+              {profileBio(profile)}
+            </Text>
+            <ProfileBadgeSummaryRow
+              items={badgeCategorySummaries}
+              onCategoryPress={onBadgeSummaryPress}
+            />
+          </View>
         }
         displayName={profile.displayName || username}
         locationText={meta}

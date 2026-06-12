@@ -12,7 +12,7 @@ import type {
   UserBadge,
 } from "@freediving.ph/types";
 import { Link, type Href } from "expo-router";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Pressable, Text, TextInput, View } from "react-native";
 
 import {
@@ -281,21 +281,21 @@ function JourneySheet({
     <MobileActionSheet onClose={onClose} title={title} visible={open}>
       <View className="gap-3">
         <TextInput
-          className="rounded-2xl border border-border bg-card px-3 py-3 text-foreground"
+          className="w-full rounded-2xl border border-border bg-card px-3 py-3 text-foreground"
           onChangeText={(value) => onChange({ ...draft, title: value })}
           placeholder="Title"
           placeholderTextColor="#64748b"
           value={draft.title}
         />
         <TextInput
-          className="rounded-2xl border border-border bg-card px-3 py-3 text-foreground"
+          className="w-full rounded-2xl border border-border bg-card px-3 py-3 text-foreground"
           onChangeText={(value) => onChange({ ...draft, occurredAt: value })}
           placeholder="YYYY-MM-DD"
           placeholderTextColor="#64748b"
           value={draft.occurredAt}
         />
         <TextInput
-          className="min-h-28 rounded-2xl border border-border bg-card px-3 py-3 text-foreground"
+          className="min-h-28 w-full rounded-2xl border border-border bg-card px-3 py-3 text-foreground"
           multiline
           onChangeText={(value) => onChange({ ...draft, body: value })}
           placeholder="Story"
@@ -306,7 +306,16 @@ function JourneySheet({
         {errorMessage ? (
           <Text className="text-sm text-destructive">{errorMessage}</Text>
         ) : null}
-        <MobileButton onPress={onSubmit}>{submitLabel}</MobileButton>
+        <View className="flex-row gap-2">
+          <View className="flex-1">
+            <MobileButton variant="ghost" onPress={onClose}>
+              Cancel
+            </MobileButton>
+          </View>
+          <View className="flex-1">
+            <MobileButton onPress={onSubmit}>{submitLabel}</MobileButton>
+          </View>
+        </View>
       </View>
     </MobileActionSheet>
   );
@@ -393,12 +402,14 @@ export function ProfileJourneySection({
   isLoading,
   isOwner,
   username,
+  initialComposerOpen,
 }: {
   data?: ProfileJourneyResponse;
   error?: unknown;
   isLoading: boolean;
   isOwner: boolean;
   username: string;
+  initialComposerOpen?: boolean;
 }) {
   const createEntry = useCreateJourneyEntryMutation(username);
   const updateEntry = useUpdateJourneyEntryMutation(username);
@@ -406,6 +417,7 @@ export function ProfileJourneySection({
   const [editingEntry, setEditingEntry] = useState<JourneyEntry | null>(null);
   const [composerOpen, setComposerOpen] = useState(false);
   const [draft, setDraft] = useState<JourneyDraft>(createJourneyDraft());
+  const didAutoOpenComposer = useRef(false);
   const mutationError =
     createEntry.error instanceof Error
       ? createEntry.error.message
@@ -418,6 +430,16 @@ export function ProfileJourneySection({
     setDraft(createJourneyDraft());
     setEditingEntry(null);
   }, [composerOpen]);
+
+  useEffect(() => {
+    if (!isOwner) return;
+    if (!initialComposerOpen) return;
+    if (didAutoOpenComposer.current) return;
+    didAutoOpenComposer.current = true;
+    setComposerOpen(true);
+    setEditingEntry(null);
+    setDraft(createJourneyDraft());
+  }, [initialComposerOpen, isOwner]);
 
   if (isLoading && !data) {
     return <MobileLoadingState message="Loading dive journey." />;
@@ -659,7 +681,7 @@ function PassportCustomizeSheet({
         />
         <ToggleRow
           checked={draft.showJourney}
-          label="Show journey preview"
+          label="Show journey highlights"
           onPress={() =>
             setDraft((current) => ({
               ...current,
@@ -709,13 +731,22 @@ function PassportCustomizeSheet({
             </View>
           </View>
         ) : null}
-        <MobileButton
-          disabled={submitting}
-          onPress={() => onSubmit(draft)}
-          variant="primary"
-        >
-          Save passport
-        </MobileButton>
+        <View className="flex-row gap-2">
+          <View className="flex-1">
+            <MobileButton variant="ghost" onPress={onClose}>
+              Cancel
+            </MobileButton>
+          </View>
+          <View className="flex-1">
+            <MobileButton
+              disabled={submitting}
+              onPress={() => onSubmit(draft)}
+              variant="primary"
+            >
+              Save passport
+            </MobileButton>
+          </View>
+        </View>
       </View>
     </MobileActionSheet>
   );
@@ -833,6 +864,7 @@ export function ProfilePassportSection({
   isLoading,
   isOwner,
   username,
+  initialCustomizeOpen,
 }: {
   availableBadges?: UserBadge[];
   data?: ProfilePassportResponse;
@@ -840,9 +872,19 @@ export function ProfilePassportSection({
   isLoading: boolean;
   isOwner: boolean;
   username: string;
+  initialCustomizeOpen?: boolean;
 }) {
   const updateSettings = useUpdatePassportSettingsMutation(username);
   const [customizeOpen, setCustomizeOpen] = useState(false);
+  const didAutoOpenCustomize = useRef(false);
+
+  useEffect(() => {
+    if (!isOwner) return;
+    if (!initialCustomizeOpen) return;
+    if (didAutoOpenCustomize.current) return;
+    didAutoOpenCustomize.current = true;
+    setCustomizeOpen(true);
+  }, [initialCustomizeOpen, isOwner]);
 
   if (isLoading && !data?.passport) {
     return <MobileLoadingState message="Loading dive passport." />;

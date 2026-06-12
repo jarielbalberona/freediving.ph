@@ -14,6 +14,7 @@ test("mobile profile core uses shared badge and dive identity contracts", () => 
   const mutations = read(
     "src/features/profiles/hooks/use-profile-experience-mutations.ts",
   );
+  const actionSheet = read("src/components/shell/mobile-action-sheet.tsx");
 
   for (const contract of [
     "ProfileBadgesResponse",
@@ -37,6 +38,14 @@ test("mobile profile core uses shared badge and dive identity contracts", () => 
   ]) {
     assert.match(api, new RegExp(pathPart));
   }
+  assert.match(actionSheet, /ScrollView/);
+  assert.match(
+    actionSheet,
+    /className=\"w-full border-b border-border\/40 px-4 pb-3\"/,
+  );
+  assert.match(actionSheet, /contentContainerClassName=\"w-full pb-5 pt-4\"/);
+  assert.match(actionSheet, /keyboardVerticalOffset=\{Platform\.OS === \"ios\" \? 16 : 0\}/);
+  assert.doesNotMatch(actionSheet, /contentContainerStyle=\{\s*width: sheetWidth\s*\}/);
   assert.match(hooks, /useProfileBadgesQuery/);
   assert.match(hooks, /useProfileDiveMapQuery/);
   assert.match(hooks, /useProfilePassportQuery/);
@@ -55,6 +64,8 @@ test("mobile profile renders canon-aligned tabs without pre-tab identity blocks"
   const ownProfile = read("src/features/profiles/screens/profile-screen.tsx");
   const publicProfile = read("src/features/profiles/screens/public-profile-screen.tsx");
   const summary = read("src/features/profiles/components/profile-dive-identity-summary.tsx");
+  const header = read("src/features/profiles/components/profile-header.tsx");
+  const badgeSummary = read("src/features/profiles/components/profile-badge-summary-row.tsx");
   const badges = read("src/features/profiles/components/profile-badges-section.tsx");
   const tabs = read("src/features/profiles/components/profile-tabs.tsx");
   const experience = read(
@@ -107,16 +118,50 @@ test("mobile profile renders canon-aligned tabs without pre-tab identity blocks"
   assert.match(publicProfile, /activeTab === "journey"/);
   assert.match(ownProfile, /activeTab === "passport"/);
   assert.match(publicProfile, /activeTab === "passport"/);
+  assert.match(header, /ProfileBadgeSummaryRow/);
+  assert.match(header, /badgeCategorySummaries/);
   assert.match(experience, /ProfileDiveMemoriesSection/);
   assert.match(experience, /ProfileJourneySection/);
   assert.match(experience, /ProfilePassportSection/);
   assert.match(experience, /Customize Passport/);
   assert.match(experience, /Add journey note/);
+  assert.match(experience, /Show journey highlights/);
+  assert.doesNotMatch(experience, /Show journey preview/);
+  assert.match(
+    publicProfile,
+    /onBadgeSummaryPress=\{\(\) => setActiveTab\("badges"\)\}/,
+  );
+  assert.match(
+    ownProfile,
+    /onBadgeSummaryPress=\{\(\) => setActiveTab\("badges"\)\}/,
+  );
+  assert.match(
+    ownProfile,
+    /badgeCategorySummaries=\{badgesQuery\.data\?\.categorySummaries \?\? \[\]\}/,
+  );
+  assert.match(
+    publicProfile,
+    /badgeCategorySummaries=\{badgesQuery\.data\?\.categorySummaries \?\? \[\]\}/,
+  );
+  assert.match(badgeSummary, /if \(summaries\.length === 0\) \{/);
+  assert.match(badgeSummary, /return null;/);
+  assert.match(badgeSummary, /testID=\{`badge-summary-/);
+  assert.match(badgeSummary, /absolute -top-1 -right-1/);
+  assert.match(badgeSummary, /onCategoryPress\(item\.category\)/);
   assert.match(entryScreen, /Media/);
   assert.match(entryScreen, /Posts/);
+  assert.match(entryScreen, /Site context/);
   assert.match(entryScreen, /Share memory/);
   assert.doesNotMatch(entryScreen, /Proof/);
   assert.doesNotMatch(entryScreen, /UUID/i);
+  assert.match(
+    badges,
+    /import\s+\{\s*Image\s*\}\s+from\s+\"expo-image\";/,
+  );
+  assert.match(badges, /ProfileBadgeTile/);
+  assert.match(badges, /resolveBadgeImageUrl/);
+  assert.match(badges, /groupBadgesByCategory/);
+  assert.match(badges, /new URL\(trimmed, `\$\{env\.apiBaseUrl\}\/`\)/);
   assert.match(homeRoute, /ProfileDiveMemoryEntryScreen/);
   assert.doesNotMatch(badges, /mutate|POST|PATCH|DELETE/);
 });

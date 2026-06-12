@@ -55,9 +55,19 @@ type ProfileEditDraft = {
   interests?: string;
 };
 
+const isTruthyParam = (value: string | string[] | undefined) => {
+  if (!value) return false;
+  const candidate = Array.isArray(value) ? value[0] : value;
+  return candidate === "1" || candidate === "true";
+};
+
 export function ProfileScreen() {
   const { isLoaded, isSignedIn } = useAuth();
-  const params = useLocalSearchParams<{ tab?: string | string[] }>();
+  const params = useLocalSearchParams<{
+    openJourneyComposer?: string | string[];
+    openPassportCustomize?: string | string[];
+    tab?: string | string[];
+  }>();
   const profileQuery = useMyProfileQuery();
   const profile = profileQuery.data?.profile;
   const updateProfile = useUpdateMyProfileMutation();
@@ -172,6 +182,8 @@ export function ProfileScreen() {
             setInterests((profile.interests ?? []).join(", "));
             setIsEditing((value) => !value);
           }}
+          badgeCategorySummaries={badgesQuery.data?.categorySummaries ?? []}
+          onBadgeSummaryPress={() => setActiveTab("badges")}
           profile={profile as HeaderProfile}
           stats={headerStats}
         />
@@ -239,6 +251,7 @@ export function ProfileScreen() {
             isLoading={journeyQuery.isLoading}
             isOwner
             username={profile.username}
+            initialComposerOpen={isTruthyParam(params.openJourneyComposer)}
           />
         </MobileSection>
       ) : null}
@@ -255,6 +268,7 @@ export function ProfileScreen() {
             isLoading={passportQuery.isLoading}
             isOwner
             username={profile.username}
+            initialCustomizeOpen={isTruthyParam(params.openPassportCustomize)}
           />
         </MobileSection>
       ) : null}

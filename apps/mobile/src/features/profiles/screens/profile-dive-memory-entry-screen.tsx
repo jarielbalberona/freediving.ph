@@ -1,7 +1,7 @@
 import { Galeria } from "@nandorojo/galeria";
 import { Image } from "expo-image";
 import { Stack, useLocalSearchParams } from "expo-router";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Pressable, Text, TextInput, View } from "react-native";
 
 import {
@@ -41,16 +41,23 @@ const formatShortDate = (value: string | undefined) => {
   }).format(date);
 };
 
+const isTruthyParam = (value: string | string[] | undefined) => {
+  const candidate = Array.isArray(value) ? value[0] : value;
+  return candidate === "1" || candidate === "true";
+};
+
 export function ProfileDiveMemoryEntryScreen() {
   const params = useLocalSearchParams<{
     entrySlug?: string | string[];
     username?: string | string[];
+    openMemoryComposer?: string | string[];
   }>();
   const entrySlug = firstParam(params.entrySlug)?.trim().toLowerCase();
   const username = safeProfileUsername(firstParam(params.username));
   const pageQuery = useProfileDiveMemoriesPageQuery(username, entrySlug);
   const [activeTab, setActiveTab] = useState<"media" | "posts">("media");
   const [composerOpen, setComposerOpen] = useState(false);
+  const didAutoOpenComposer = useRef(false);
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
   const createMemory = useCreateDiveMemoryMutation(username ?? "");
@@ -59,6 +66,16 @@ export function ProfileDiveMemoryEntryScreen() {
   const site = page?.site;
   const entry = page?.entry;
   const isOwner = page?.profile.viewerIsOwner ?? false;
+
+  useEffect(() => {
+    if (!isOwner) return;
+    if (!isTruthyParam(params.openMemoryComposer)) return;
+    if (didAutoOpenComposer.current) return;
+    if (!page) return;
+    didAutoOpenComposer.current = true;
+    setComposerOpen(true);
+  }, [isOwner, params.openMemoryComposer, page]);
+
   const mediaItems = useMemo<MediaGalleryItem[]>(
     () => [
       ...(page?.proofItems.map((item) => ({
@@ -264,15 +281,28 @@ export function ProfileDiveMemoryEntryScreen() {
             visible={composerOpen}
           >
             <View className="gap-3">
+              {site ? (
+                <View className="rounded-2xl border border-border bg-card px-3 py-2">
+                  <Text className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+                    Site context
+                  </Text>
+                  <Text className="text-sm font-semibold text-foreground">
+                    {site.name}
+                  </Text>
+                  <Text className="text-xs text-muted-foreground">
+                    {site.area || "Dive spot"}
+                  </Text>
+                </View>
+              ) : null}
               <TextInput
-                className="rounded-2xl border border-border bg-card px-3 py-3 text-foreground"
+                className="w-full rounded-2xl border border-border bg-card px-3 py-3 text-foreground"
                 onChangeText={setTitle}
                 placeholder="Title"
                 placeholderTextColor="#64748b"
                 value={title}
               />
               <TextInput
-                className="min-h-28 rounded-2xl border border-border bg-card px-3 py-3 text-foreground"
+                className="min-h-28 w-full rounded-2xl border border-border bg-card px-3 py-3 text-foreground"
                 multiline
                 onChangeText={setBody}
                 placeholder="Share what stood out from this dive"
@@ -285,29 +315,42 @@ export function ProfileDiveMemoryEntryScreen() {
                   {createMemory.error.message}
                 </Text>
               ) : null}
-              <MobileButton
-                disabled={createMemory.isPending}
-                onPress={() => {
-                  if (!site?.diveSiteId || !title.trim()) return;
-                  createMemory.mutate(
-                    {
-                      body: body.trim() || undefined,
-                      diveSiteId: site.diveSiteId,
-                      title: title.trim(),
-                      visibility: "public",
-                    },
-                    {
-                      onSuccess: () => {
-                        setBody("");
-                        setTitle("");
-                        setComposerOpen(false);
-                      },
-                    },
-                  );
-                }}
-              >
-                Share memory
-              </MobileButton>
+              <View className="flex-row gap-2">
+                <View className="flex-1">
+                  <MobileButton
+                    disabled={createMemory.isPending}
+                    onPress={() => {
+                      if (!site?.diveSiteId || !title.trim()) return;
+                      createMemory.mutate(
+                        {
+                          body: body.trim() || undefined,
+                          diveSiteId: site.diveSiteId,
+                          title: title.trim(),
+                          visibility: "public",
+                        },
+                        {
+                          onSuccess: () => {
+                            setBody("");
+                            setTitle("");
+                            setComposerOpen(false);
+                          },
+                        },
+                      );
+                    }}
+                  >
+                    Share memory
+                  </MobileButton>
+                </View>
+                <View className="flex-1">
+                  <MobileButton
+                    disabled={createMemory.isPending}
+                    variant="ghost"
+                    onPress={() => setComposerOpen(false)}
+                  >
+                    Cancel
+                  </MobileButton>
+                </View>
+              </View>
             </View>
           </MobileActionSheet>
         </View>
