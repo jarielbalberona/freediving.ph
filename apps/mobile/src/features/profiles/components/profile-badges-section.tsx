@@ -17,6 +17,73 @@ import {
   groupBadgesByCategory,
 } from "@/features/profiles/components/profile-experience-sections";
 
+type ProfileBadgeTemplateImageSource = {
+  badgeImageUrl?: string | null;
+  badgeImage?: string | null;
+  imagePath?: string | null;
+  imageUrl?: string | null;
+  iconUrl?: string | null;
+  logoPath?: string | null;
+  logoUrl?: string | null;
+};
+
+const normalizeImageCandidate = (value?: string | null) => {
+  const trimmed = value?.trim() ?? "";
+  if (!trimmed) return "";
+  return trimmed;
+};
+
+const hasImageLikeValue = (value?: string | null) => {
+  const trimmed = value?.trim() ?? "";
+  if (!trimmed) return false;
+  if (
+    trimmed.startsWith("http://") ||
+    trimmed.startsWith("https://") ||
+    trimmed.startsWith("//") ||
+    trimmed.startsWith("/")
+  ) {
+    return true;
+  }
+  return /\.(png|jpg|jpeg|gif|webp|avif|svg)(?:\?|#|$)/i.test(trimmed);
+};
+
+const resolveBadgeImageUrl = (value?: string | null) => {
+  const trimmed = value?.trim() ?? "";
+  if (!trimmed) return "";
+  if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) {
+    return trimmed;
+  }
+  if (trimmed.startsWith("//")) {
+    return `https:${trimmed}`;
+  }
+  if (!env.apiBaseUrl) return "";
+
+  const normalizedPath = trimmed.startsWith("/") ? trimmed : `/${trimmed}`;
+  try {
+    return new URL(normalizedPath, `${env.apiBaseUrl}/`).toString();
+  } catch {
+    return "";
+  }
+};
+
+const selectBadgeImageSource = (badge: UserBadge) => {
+  const template = badge.template as ProfileBadgeTemplateImageSource;
+  const topLevel = badge as { imageUrl?: string | null };
+  const candidates: Array<string | null | undefined> = [
+    template.badgeImageUrl,
+    template.badgeImage,
+    template.imageUrl,
+    template.imagePath,
+    template.iconUrl,
+    template.logoPath,
+    template.logoUrl,
+    badge.icon,
+    topLevel.imageUrl,
+  ];
+
+  return candidates.find(hasImageLikeValue);
+};
+
 const categoryLabel = (category: BadgeCategory) => {
   const titleByCategory: Record<BadgeCategory, string> = {
     personal_best: "Performance Marks",
@@ -39,25 +106,6 @@ const formatDate = (value: string | undefined) => {
   }).format(date);
 };
 
-const resolveBadgeImageUrl = (value?: string) => {
-  const trimmed = value?.trim() ?? "";
-  if (!trimmed) return "";
-  if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) {
-    return trimmed;
-  }
-
-  if (!trimmed.startsWith("/")) {
-    return "";
-  }
-
-  if (!env.apiBaseUrl) return "";
-  try {
-    return new URL(trimmed, `${env.apiBaseUrl}/`).toString();
-  } catch {
-    return "";
-  }
-};
-
 const formatMetadata = (badge: UserBadge) => {
   const earned = formatDate(badge.earnedDate || badge.earnedAt);
   const metadata = [earned, badge.displayValue, badge.formattedValue].filter(
@@ -76,12 +124,12 @@ const badgeCategoryOrder = new Set([
 
 function ProfileBadgeTile({ badge }: { badge: UserBadge }) {
   const badgeName = badge.template.name || badge.name;
-  const rawImageUrl = badge.template.badgeImageUrl ?? badge.icon;
+  const rawImageUrl = normalizeImageCandidate(selectBadgeImageSource(badge));
   const imageUrl = resolveBadgeImageUrl(rawImageUrl);
   const sourceUrl = imageUrl ? safeImageUrl(imageUrl) ?? "" : "";
   const [imageError, setImageError] = useState(false);
-  const fallbackImage = !imageUrl || imageError ? (
-    <View className="size-10 items-center justify-center rounded-full bg-secondary">
+  const fallbackImage = !sourceUrl || imageError ? (
+    <View className="size-14 items-center justify-center rounded-full bg-secondary">
       <Ionicons color="#475569" name="ribbon-outline" size={20} />
     </View>
   ) : null;
@@ -92,7 +140,7 @@ function ProfileBadgeTile({ badge }: { badge: UserBadge }) {
         {sourceUrl && !imageError ? (
           <Image
             accessibilityLabel={`${badgeName} badge`}
-            className="mb-2 size-16"
+            className="mb-3 size-20"
             contentFit="contain"
             onError={() => setImageError(true)}
             source={{ uri: sourceUrl }}

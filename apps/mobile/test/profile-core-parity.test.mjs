@@ -161,9 +161,33 @@ test("mobile profile renders canon-aligned tabs without pre-tab identity blocks"
   assert.match(badges, /ProfileBadgeTile/);
   assert.match(badges, /resolveBadgeImageUrl/);
   assert.match(badges, /groupBadgesByCategory/);
-  assert.match(badges, /new URL\(trimmed, `\$\{env\.apiBaseUrl\}\/`\)/);
+  assert.match(badges, /new URL\(normalizedPath, `\$\{env\.apiBaseUrl\}\/`\)/);
   assert.match(homeRoute, /ProfileDiveMemoryEntryScreen/);
   assert.doesNotMatch(badges, /mutate|POST|PATCH|DELETE/);
+});
+
+test("mobile badge tab renders image-first cards with safe fallback", () => {
+  const badges = read("src/features/profiles/components/profile-badges-section.tsx");
+
+  assert.match(badges, /type ProfileBadgeTemplateImageSource = \{/);
+  assert.match(badges, /const selectBadgeImageSource = \(badge: UserBadge\) =>/);
+  assert.match(
+    badges,
+    /const rawImageUrl = normalizeImageCandidate\(selectBadgeImageSource\(badge\)\);/,
+  );
+  assert.match(badges, /const imageUrl = resolveBadgeImageUrl\(rawImageUrl\);/);
+  assert.match(
+    badges,
+    /const normalizedPath = trimmed\.startsWith\("\/"\) \? trimmed : `\/\$\{trimmed\}`;/,
+  );
+  assert.ok(badges.includes("accessibilityLabel={`${badgeName} badge`}"));
+  assert.ok(badges.includes("source={{ uri: sourceUrl }}"));
+  assert.match(badges, /const fallbackImage = !sourceUrl \|\| imageError \? /);
+  assert.match(badges, /template\.badgeImageUrl|badge\.template\.badgeImageUrl/);
+  assert.match(
+    badges,
+    /imageUrl|imagePath|iconUrl|badgeImage|logoPath/,
+  );
 });
 
 test("own profile edit includes backend-supported identity fields", () => {
