@@ -227,6 +227,16 @@ export const mobileQueryKeys = {
       [...mobileQueryKeys.profile.all, "public", username, "journey"] as const,
     diveMemories: (username: string) =>
       [...mobileQueryKeys.profile.all, "public", username, "dive-memories"] as const,
+    diveMemoriesPages: (username: string) =>
+      [...mobileQueryKeys.profile.diveMemories(username), "pages"] as const,
+    diveMemoriesPage: (username: string, entrySlug: string) =>
+      [...mobileQueryKeys.profile.diveMemoriesPages(username), entrySlug] as const,
+    myDiveMemories: () =>
+      [...mobileQueryKeys.profile.all, "me", "dive-memories"] as const,
+    myDiveMemoryTags: () =>
+      [...mobileQueryKeys.profile.all, "me", "dive-memory-tags"] as const,
+    myPassportSettings: () =>
+      [...mobileQueryKeys.profile.all, "me", "passport-settings"] as const,
     saved: () => [...mobileQueryKeys.profile.all, "saved"] as const,
   },
   safety: {

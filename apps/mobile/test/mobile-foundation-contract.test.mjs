@@ -610,7 +610,8 @@ test("profiles use shared contracts, auth gating, edit, posts, and diving", () =
   assert.match(mutationHook, /ProfileViewResponse/);
   assert.match(mutationHook, /profile\.public\(response\.profile\.username\)/);
   assert.match(mutationHook, /setQueryData<ProfileViewResponse>/);
-  assert.match(ownScreen, /\/\(app\)\/\(tabs\)\/\(home\)\/profile\/settings/);
+  assert.doesNotMatch(ownScreen, /\/\(app\)\/\(tabs\)\/\(home\)\/profile\/settings/);
+  assert.doesNotMatch(ownScreen, /Account settings/);
   assert.match(publicScreen, /useLocalSearchParams/);
   assert.match(
     publicScreen,

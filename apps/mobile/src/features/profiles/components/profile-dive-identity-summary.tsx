@@ -73,7 +73,10 @@ export function ProfileDiveIdentitySummary({
   const journeyCount =
     passportStats?.journeyEntryCount ?? journey?.items.length ?? 0;
   const memoryCount = passportStats?.memoryCount ?? memories?.items.length ?? 0;
-  const proofSites = diveMap?.markers.slice(0, 3) ?? passport?.passport.mapPreview.markers.slice(0, 3) ?? [];
+  const recentSites =
+    diveMap?.markers.slice(0, 3) ??
+    passport?.passport.mapPreview.markers.slice(0, 3) ??
+    [];
   const latestJourney = passport?.passport.journeyHighlights.entries[0] ?? journey?.items[0];
   const latestMemory = passport?.passport.memories.items[0] ?? memories?.items[0];
 
@@ -85,8 +88,8 @@ export function ProfileDiveIdentitySummary({
             Dive identity
           </Text>
           <Text className="mt-1 text-sm leading-5 text-muted-foreground">
-            Proof-backed sites come from the diver's own qualifying media posts.
-            Memories stay contextual and do not unlock locations.
+            Posts, places, badges, memories, and story highlights each keep
+            their own role here. Shared memories do not add new visited sites.
           </Text>
         </View>
         <MetricRow
@@ -97,12 +100,12 @@ export function ProfileDiveIdentitySummary({
             { label: "Memories", value: formatCount(memoryCount) },
           ]}
         />
-        {proofSites.length > 0 ? (
+        {recentSites.length > 0 ? (
           <View className="gap-1">
             <Text className="text-xs font-semibold uppercase text-muted-foreground">
-              Recent proof-backed sites
+              Recent dive places
             </Text>
-            {proofSites.map((site) => (
+            {recentSites.map((site) => (
               <Text key={site.diveSiteId} className="text-sm text-foreground">
                 {site.diveSiteName}
               </Text>

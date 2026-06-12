@@ -5,9 +5,9 @@ type ProfileTab =
   | "posts"
   | "badges"
   | "diving"
-  | "dive-map"
-  | "dive-journey"
-  | "dive-passport";
+  | "dive-memories"
+  | "journey"
+  | "passport";
 
 const profileTabs: Array<{
   icon: keyof typeof Ionicons.glyphMap;
@@ -17,10 +17,27 @@ const profileTabs: Array<{
   { icon: "grid-outline", label: "Posts", value: "posts" },
   { icon: "ribbon-outline", label: "Badges", value: "badges" },
   { icon: "water-outline", label: "Diving", value: "diving" },
-  { icon: "map-outline", label: "Dive Map", value: "dive-map" },
-  { icon: "git-branch-outline", label: "Dive Journey", value: "dive-journey" },
-  { icon: "id-card-outline", label: "Dive Passport", value: "dive-passport" },
+  { icon: "map-outline", label: "Dive Memories", value: "dive-memories" },
+  { icon: "git-branch-outline", label: "Dive Journey", value: "journey" },
+  { icon: "id-card-outline", label: "Dive Passport", value: "passport" },
 ];
+
+export const normalizeProfileTab = (
+  value: string | string[] | undefined,
+): ProfileTab => {
+  const raw = Array.isArray(value) ? value[0] : value;
+  switch (raw) {
+    case "posts":
+    case "badges":
+    case "diving":
+    case "dive-memories":
+    case "journey":
+    case "passport":
+      return raw;
+    default:
+      return "posts";
+  }
+};
 
 export function ProfileTabs({
   activeTab,

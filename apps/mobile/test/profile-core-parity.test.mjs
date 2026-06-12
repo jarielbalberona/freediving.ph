@@ -11,6 +11,9 @@ test("mobile profile core uses shared badge and dive identity contracts", () => 
   const api = read("src/features/profiles/api/profiles-api.ts");
   const hooks = read("src/features/profiles/hooks/use-profile-activity-query.ts");
   const keys = read("src/lib/query/query-keys.ts");
+  const mutations = read(
+    "src/features/profiles/hooks/use-profile-experience-mutations.ts",
+  );
 
   for (const contract of [
     "ProfileBadgesResponse",
@@ -18,6 +21,7 @@ test("mobile profile core uses shared badge and dive identity contracts", () => 
     "ProfilePassportResponse",
     "ProfileJourneyResponse",
     "ProfileDiveMemoriesResponse",
+    "ProfileDiveMemoriesPageResponse",
   ]) {
     assert.match(api, new RegExp(contract));
   }
@@ -27,6 +31,9 @@ test("mobile profile core uses shared badge and dive identity contracts", () => 
     "/passport",
     "/journey",
     "/dive-memories",
+    "/v1/me/dive-memories",
+    "/v1/me/journey",
+    "/v1/me/passport-settings",
   ]) {
     assert.match(api, new RegExp(pathPart));
   }
@@ -35,10 +42,16 @@ test("mobile profile core uses shared badge and dive identity contracts", () => 
   assert.match(hooks, /useProfilePassportQuery/);
   assert.match(hooks, /useProfileJourneyQuery/);
   assert.match(hooks, /useProfileDiveMemoriesQuery/);
+  assert.match(hooks, /useProfileDiveMemoriesPageQuery/);
   assert.match(keys, /diveMemories/);
+  assert.match(keys, /diveMemoriesPage/);
+  assert.match(keys, /myDiveMemories/);
+  assert.match(mutations, /useCreateDiveMemoryMutation/);
+  assert.match(mutations, /useCreateJourneyEntryMutation/);
+  assert.match(mutations, /useUpdatePassportSettingsMutation/);
 });
 
-test("mobile profile renders read-only badges and proof-based dive identity summary", () => {
+test("mobile profile renders canon-aligned tabs without pre-tab identity blocks", () => {
   const ownProfile = read("src/features/profiles/screens/profile-screen.tsx");
   const publicProfile = read("src/features/profiles/screens/public-profile-screen.tsx");
   const summary = read("src/features/profiles/components/profile-dive-identity-summary.tsx");
@@ -47,9 +60,16 @@ test("mobile profile renders read-only badges and proof-based dive identity summ
   const experience = read(
     "src/features/profiles/components/profile-experience-sections.tsx",
   );
+  const entryScreen = read(
+    "src/features/profiles/screens/profile-dive-memory-entry-screen.tsx",
+  );
+  const homeRoute = read(
+    "app/(app)/(tabs)/(home)/dive-memories/[entrySlug]/[username].tsx",
+  );
 
-  assert.match(ownProfile, /ProfileDiveIdentitySummary/);
-  assert.match(publicProfile, /ProfileDiveIdentitySummary/);
+  assert.doesNotMatch(ownProfile, /ProfileDiveIdentitySummary/);
+  assert.doesNotMatch(publicProfile, /ProfileDiveIdentitySummary/);
+  assert.doesNotMatch(ownProfile, /Diver details/);
   assert.match(ownProfile, /ProfileBadgesSection/);
   assert.match(publicProfile, /ProfileBadgesSection/);
   assert.match(tabs, /Badges/);
@@ -57,7 +77,7 @@ test("mobile profile renders read-only badges and proof-based dive identity summ
     "Posts",
     "Badges",
     "Diving",
-    "Dive Map",
+    "Dive Memories",
     "Dive Journey",
     "Dive Passport",
   ]) {
@@ -67,31 +87,37 @@ test("mobile profile renders read-only badges and proof-based dive identity summ
     "posts",
     "badges",
     "diving",
-    "dive-map",
-    "dive-journey",
-    "dive-passport",
+    "dive-memories",
+    "journey",
+    "passport",
   ]) {
     assert.match(tabs, new RegExp(`value: "${value}"`));
   }
   assert.match(tabs, /Ionicons/);
   assert.match(tabs, /accessibilityRole="tab"/);
   assert.match(tabs, /accessibilityState=\{\{ selected: active \}\}/);
-  assert.match(summary, /own qualifying media posts/);
-  assert.match(summary, /Memories stay contextual and do not unlock locations/);
+  assert.match(summary, /Shared memories do not add new visited sites/);
   assert.match(
     summary,
     /visitedSiteCount =\s+passportStats\?\.visitedSiteCount \?\? diveMap\?\.visitedSiteCount \?\? 0;/,
   );
-  assert.match(ownProfile, /activeTab === "dive-map"/);
-  assert.match(publicProfile, /activeTab === "dive-map"/);
-  assert.match(ownProfile, /activeTab === "dive-journey"/);
-  assert.match(publicProfile, /activeTab === "dive-journey"/);
-  assert.match(ownProfile, /activeTab === "dive-passport"/);
-  assert.match(publicProfile, /activeTab === "dive-passport"/);
-  assert.match(experience, /ProfileDiveMapSection/);
+  assert.match(ownProfile, /activeTab === "dive-memories"/);
+  assert.match(publicProfile, /activeTab === "dive-memories"/);
+  assert.match(ownProfile, /activeTab === "journey"/);
+  assert.match(publicProfile, /activeTab === "journey"/);
+  assert.match(ownProfile, /activeTab === "passport"/);
+  assert.match(publicProfile, /activeTab === "passport"/);
+  assert.match(experience, /ProfileDiveMemoriesSection/);
   assert.match(experience, /ProfileJourneySection/);
   assert.match(experience, /ProfilePassportSection/);
-  assert.match(experience, /own qualifying\s+media posts tagged to a dive site/);
+  assert.match(experience, /Customize Passport/);
+  assert.match(experience, /Add journey note/);
+  assert.match(entryScreen, /Media/);
+  assert.match(entryScreen, /Posts/);
+  assert.match(entryScreen, /Share memory/);
+  assert.doesNotMatch(entryScreen, /Proof/);
+  assert.doesNotMatch(entryScreen, /UUID/i);
+  assert.match(homeRoute, /ProfileDiveMemoryEntryScreen/);
   assert.doesNotMatch(badges, /mutate|POST|PATCH|DELETE/);
 });
 

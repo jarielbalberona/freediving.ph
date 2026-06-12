@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import {
   getProfileBadges,
   getProfileDiveMap,
+  getProfileDiveMemoriesPage,
   getProfileDiveMemories,
   getProfileDiving,
   getProfileJourney,
@@ -73,6 +74,25 @@ export const useProfileDiveMemoriesQuery = (username: string | undefined) => {
     enabled: Boolean(safeUsername),
     queryFn: () => getProfileDiveMemories(safeUsername ?? ""),
     queryKey: mobileQueryKeys.profile.diveMemories(safeUsername ?? ""),
+    staleTime: 5 * 60 * 1000,
+  });
+};
+
+export const useProfileDiveMemoriesPageQuery = (
+  username: string | undefined,
+  entrySlug: string | undefined,
+) => {
+  const safeUsername = safeProfileUsername(username);
+  const safeEntrySlug = entrySlug?.trim().toLowerCase();
+
+  return useQuery({
+    enabled: Boolean(safeUsername && safeEntrySlug),
+    queryFn: () =>
+      getProfileDiveMemoriesPage(safeUsername ?? "", safeEntrySlug ?? ""),
+    queryKey: mobileQueryKeys.profile.diveMemoriesPage(
+      safeUsername ?? "",
+      safeEntrySlug ?? "",
+    ),
     staleTime: 5 * 60 * 1000,
   });
 };

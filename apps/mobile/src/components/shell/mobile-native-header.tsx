@@ -233,6 +233,17 @@ export function nativeLargeTitleOptions(
   };
 }
 
+export function nativeDetailScreenOptions(title: string) {
+  return {
+    ...IOS_NATIVE_STACK_SCREEN_OPTIONS,
+    headerBackButtonDisplayMode: "minimal" as const,
+    headerBackTitleVisible: false,
+    headerLeft: undefined,
+    headerRight: undefined,
+    title,
+  };
+}
+
 export function homeNativeLargeTitleOptions() {
   return {
     ...nativeLargeTitleOptions("Home"),

@@ -1,5 +1,5 @@
 import { useAuth } from "@clerk/expo";
-import { Link } from "expo-router";
+import { useLocalSearchParams } from "expo-router";
 import { useEffect, useState } from "react";
 import { Pressable, Text, TextInput, View } from "react-native";
 
@@ -14,9 +14,7 @@ import {
   normalizeProfileDiveSpotHighlights,
   useProfileMediaQuery,
 } from "@/features/media/hooks/use-profile-media-query";
-import { ProfileDetailRow } from "@/features/profiles/components/profile-detail-row";
 import { ProfileBadgesSection } from "@/features/profiles/components/profile-badges-section";
-import { ProfileDiveIdentitySummary } from "@/features/profiles/components/profile-dive-identity-summary";
 import { ProfileDivingSection } from "@/features/profiles/components/profile-diving-section";
 import {
   type HeaderProfile,
@@ -24,12 +22,16 @@ import {
 } from "@/features/profiles/components/profile-header";
 import { ProfileDiveSpotHighlights } from "@/features/profiles/components/profile-dive-spot-highlights";
 import {
-  ProfileDiveMapSection,
+  ProfileDiveMemoriesSection,
   ProfileJourneySection,
   ProfilePassportSection,
 } from "@/features/profiles/components/profile-experience-sections";
 import { ProfileMediaMasonryGrid } from "@/features/profiles/components/profile-media-masonry-grid";
-import { ProfileTab, ProfileTabs } from "@/features/profiles/components/profile-tabs";
+import {
+  normalizeProfileTab,
+  ProfileTab,
+  ProfileTabs,
+} from "@/features/profiles/components/profile-tabs";
 import {
   useProfileBadgesQuery,
   useProfileDiveMapQuery,
@@ -40,11 +42,6 @@ import {
 } from "@/features/profiles/hooks/use-profile-activity-query";
 import { useUpdateMyProfileMutation } from "@/features/profiles/hooks/use-profile-mutations";
 import { useMyProfileQuery } from "@/features/profiles/hooks/use-my-profile-query";
-import {
-  certLevelLabel,
-  profileCountLabel,
-  profileLocationLabel,
-} from "@/features/profiles/lib/profile-format";
 import { useLocalDraft } from "@/local/drafts/use-local-draft";
 import { useOutbox } from "@/local/outbox/use-outbox";
 import { PendingSyncPanel } from "@/local/sync/pending-sync-panel";
@@ -60,6 +57,7 @@ type ProfileEditDraft = {
 
 export function ProfileScreen() {
   const { isLoaded, isSignedIn } = useAuth();
+  const params = useLocalSearchParams<{ tab?: string | string[] }>();
   const profileQuery = useMyProfileQuery();
   const profile = profileQuery.data?.profile;
   const updateProfile = useUpdateMyProfileMutation();
@@ -70,7 +68,9 @@ export function ProfileScreen() {
   const passportQuery = useProfilePassportQuery(profile?.username);
   const journeyQuery = useProfileJourneyQuery(profile?.username);
   const memoriesQuery = useProfileDiveMemoriesQuery(profile?.username);
-  const [activeTab, setActiveTab] = useState<ProfileTab>("posts");
+  const [activeTab, setActiveTab] = useState<ProfileTab>(() =>
+    normalizeProfileTab(params.tab),
+  );
   const [isEditing, setIsEditing] = useState(false);
   const [actionMessage, setActionMessage] = useState<string | undefined>();
   const [displayName, setDisplayName] = useState("");
@@ -102,6 +102,10 @@ export function ProfileScreen() {
     setInterests(profileDraft.draft.payload.interests ?? "");
     setIsEditing(true);
   }, [profileDraft.draft]);
+
+  useEffect(() => {
+    setActiveTab(normalizeProfileTab(params.tab));
+  }, [params.tab]);
 
   if (profileQuery.isLoading) {
     return (
@@ -135,8 +139,6 @@ export function ProfileScreen() {
     );
   }
 
-  const location = profileLocationLabel(profile);
-  const certLevel = certLevelLabel(profile.certLevel);
   const requireSignedIn = () => {
     if (!isLoaded) {
       setActionMessage("Checking your session. Try again in a moment.");
@@ -176,27 +178,6 @@ export function ProfileScreen() {
       </MobileSection>
 
       <ProfileDiveSpotHighlights highlights={highlights} />
-      <ProfileDiveIdentitySummary
-        badges={badgesQuery.data}
-        diveMap={diveMapQuery.data}
-        hasError={Boolean(
-          badgesQuery.error ||
-            diveMapQuery.error ||
-            passportQuery.error ||
-            journeyQuery.error ||
-            memoriesQuery.error,
-        )}
-        isLoading={
-          badgesQuery.isLoading ||
-          diveMapQuery.isLoading ||
-          passportQuery.isLoading ||
-          journeyQuery.isLoading ||
-          memoriesQuery.isLoading
-        }
-        journey={journeyQuery.data}
-        memories={memoriesQuery.data}
-        passport={passportQuery.data}
-      />
 
       <ProfileTabs activeTab={activeTab} onChange={setActiveTab} />
 
@@ -235,37 +216,45 @@ export function ProfileScreen() {
         </MobileSection>
       ) : null}
 
-      {activeTab === "dive-map" ? (
+      {activeTab === "dive-memories" ? (
         <MobileSection
-          title="Dive Map"
-          description="Proof-backed locations from this diver's own qualifying media posts."
+          title="Dive Memories"
+          description="Places and memories from this diver's dives."
         >
-          <ProfileDiveMapSection
+          <ProfileDiveMemoriesSection
             data={diveMapQuery.data}
             error={diveMapQuery.error}
             isLoading={diveMapQuery.isLoading}
             isOwner
+            username={profile.username}
           />
         </MobileSection>
       ) : null}
 
-      {activeTab === "dive-journey" ? (
+      {activeTab === "journey" ? (
         <MobileSection title="Dive Journey">
           <ProfileJourneySection
             data={journeyQuery.data}
             error={journeyQuery.error}
             isLoading={journeyQuery.isLoading}
             isOwner
+            username={profile.username}
           />
         </MobileSection>
       ) : null}
 
-      {activeTab === "dive-passport" ? (
+      {activeTab === "passport" ? (
         <MobileSection title="Dive Passport">
           <ProfilePassportSection
+            availableBadges={[
+              ...(badgesQuery.data?.badges ?? []),
+              ...(badgesQuery.data?.autoStats ?? []),
+            ]}
             data={passportQuery.data}
             error={passportQuery.error}
             isLoading={passportQuery.isLoading}
+            isOwner
+            username={profile.username}
           />
         </MobileSection>
       ) : null}
@@ -408,39 +397,6 @@ export function ProfileScreen() {
         </MobileSection>
       ) : null}
 
-      <MobileSection title="Diver details">
-        <View className="gap-3">
-          <ProfileDetailRow label="Home area" value={location} />
-          <ProfileDetailRow label="Certification" value={certLevel} />
-          <ProfileDetailRow
-            label="Buddies"
-            value={profileCountLabel(profile.buddyCount, "buddies")}
-          />
-          <ProfileDetailRow
-            label="Dive reports"
-            value={profileCountLabel(profile.reportCount, "reports")}
-          />
-          {profile.interests?.length ? (
-            <ProfileDetailRow
-              label="Interests"
-              value={profile.interests.join(", ")}
-            />
-          ) : null}
-        </View>
-      </MobileSection>
-
-      <MobileSection title="Settings">
-        <Link href="/(app)/(tabs)/(home)/profile/settings" asChild>
-          <Pressable accessibilityRole="link">
-            <View className="rounded-2xl border border-border bg-card p-4">
-              <Text className="text-base font-semibold text-foreground">Account settings</Text>
-              <Text className="mt-1 text-sm leading-6 text-muted-foreground">
-                Manage sign-out and account access from settings.
-              </Text>
-            </View>
-          </Pressable>
-        </Link>
-      </MobileSection>
     </MobileScrollScreen>
   );
 }

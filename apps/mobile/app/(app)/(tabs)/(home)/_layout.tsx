@@ -3,6 +3,7 @@ import { Stack } from "expo-router";
 import {
   IOS_NATIVE_STACK_SCREEN_OPTIONS,
   homeNativeLargeTitleOptions,
+  nativeDetailScreenOptions,
   nativeLargeTitleOptions,
 } from "@/components/shell/mobile-native-header";
 
@@ -147,9 +148,11 @@ export default function HomeStackLayout() {
       />
       <Stack.Screen
         name="profile/[username]"
-        options={{
-          title: "Profile",
-        }}
+        options={nativeDetailScreenOptions("Profile")}
+      />
+      <Stack.Screen
+        name="dive-memories/[entrySlug]/[username]"
+        options={nativeDetailScreenOptions("Dive Memories")}
       />
     </Stack>
   );

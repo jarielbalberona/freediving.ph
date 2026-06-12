@@ -1,6 +1,6 @@
 import { useLocalSearchParams } from "expo-router";
 import { Stack } from "expo-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Pressable, Text, View } from "react-native";
 
 import {
@@ -11,20 +11,23 @@ import {
 } from "@/components/shell";
 import { ProfileBuddyActions } from "@/features/buddies/components/profile-buddy-actions";
 import { ProfileBadgesSection } from "@/features/profiles/components/profile-badges-section";
-import { ProfileDiveIdentitySummary } from "@/features/profiles/components/profile-dive-identity-summary";
 import { ProfileDivingSection } from "@/features/profiles/components/profile-diving-section";
 import {
   type HeaderProfile,
   ProfileHeader,
 } from "@/features/profiles/components/profile-header";
 import {
-  ProfileDiveMapSection,
+  ProfileDiveMemoriesSection,
   ProfileJourneySection,
   ProfilePassportSection,
 } from "@/features/profiles/components/profile-experience-sections";
 import { ProfileMediaMasonryGrid } from "@/features/profiles/components/profile-media-masonry-grid";
 import { ProfileDiveSpotHighlights } from "@/features/profiles/components/profile-dive-spot-highlights";
-import { ProfileTab, ProfileTabs } from "@/features/profiles/components/profile-tabs";
+import {
+  normalizeProfileTab,
+  ProfileTab,
+  ProfileTabs,
+} from "@/features/profiles/components/profile-tabs";
 import { ProfileSafetyActions } from "@/features/safety/components/profile-safety-actions";
 import {
   useProfileBadgesQuery,
@@ -45,7 +48,10 @@ const firstParam = (value: string | string[] | undefined) =>
   Array.isArray(value) ? value[0] : value;
 
 export function PublicProfileScreen() {
-  const params = useLocalSearchParams<{ username?: string | string[] }>();
+  const params = useLocalSearchParams<{
+    tab?: string | string[];
+    username?: string | string[];
+  }>();
   const routeUsername = safeProfileUsername(firstParam(params.username));
   const username = routeUsername;
   const profileQuery = usePublicProfileQuery(username);
@@ -61,7 +67,13 @@ export function PublicProfileScreen() {
   const highlights = normalizeProfileDiveSpotHighlights(posts);
   const presences = divingQuery.data?.presences ?? [];
   const affinities = divingQuery.data?.affinities ?? [];
-  const [activeTab, setActiveTab] = useState<ProfileTab>("posts");
+  const [activeTab, setActiveTab] = useState<ProfileTab>(() =>
+    normalizeProfileTab(params.tab),
+  );
+
+  useEffect(() => {
+    setActiveTab(normalizeProfileTab(params.tab));
+  }, [params.tab]);
 
   if (!username) {
     return (
@@ -143,27 +155,6 @@ export function PublicProfileScreen() {
       </MobileSection>
 
       <ProfileDiveSpotHighlights highlights={highlights} />
-      <ProfileDiveIdentitySummary
-        badges={badgesQuery.data}
-        diveMap={diveMapQuery.data}
-        hasError={Boolean(
-          badgesQuery.error ||
-            diveMapQuery.error ||
-            passportQuery.error ||
-            journeyQuery.error ||
-            memoriesQuery.error,
-        )}
-        isLoading={
-          badgesQuery.isLoading ||
-          diveMapQuery.isLoading ||
-          passportQuery.isLoading ||
-          journeyQuery.isLoading ||
-          memoriesQuery.isLoading
-        }
-        journey={journeyQuery.data}
-        memories={memoriesQuery.data}
-        passport={passportQuery.data}
-      />
 
       <ProfileTabs activeTab={activeTab} onChange={setActiveTab} />
 
@@ -204,37 +195,45 @@ export function PublicProfileScreen() {
           </MobileSection>
         ) : null}
 
-        {activeTab === "dive-map" ? (
+        {activeTab === "dive-memories" ? (
           <MobileSection
-            title="Dive Map"
-            description="Proof-backed locations from this diver's own qualifying media posts."
+            title="Dive Memories"
+            description="Places and memories from this diver's dives."
           >
-            <ProfileDiveMapSection
+            <ProfileDiveMemoriesSection
               data={diveMapQuery.data}
               error={diveMapQuery.error}
               isLoading={diveMapQuery.isLoading}
               isOwner={isOwner}
+              username={profile.username}
             />
           </MobileSection>
         ) : null}
 
-        {activeTab === "dive-journey" ? (
+        {activeTab === "journey" ? (
           <MobileSection title="Dive Journey">
             <ProfileJourneySection
               data={journeyQuery.data}
               error={journeyQuery.error}
               isLoading={journeyQuery.isLoading}
               isOwner={isOwner}
+              username={profile.username}
             />
           </MobileSection>
         ) : null}
 
-        {activeTab === "dive-passport" ? (
+        {activeTab === "passport" ? (
           <MobileSection title="Dive Passport">
             <ProfilePassportSection
+              availableBadges={[
+                ...(badgesQuery.data?.badges ?? []),
+                ...(badgesQuery.data?.autoStats ?? []),
+              ]}
               data={passportQuery.data}
               error={passportQuery.error}
               isLoading={passportQuery.isLoading}
+              isOwner={isOwner}
+              username={profile.username}
             />
           </MobileSection>
         ) : null}

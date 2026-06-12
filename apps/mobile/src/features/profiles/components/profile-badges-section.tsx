@@ -2,11 +2,32 @@ import type { UserBadge } from "@freediving.ph/types";
 import { Text, View } from "react-native";
 
 import { MobileEmptyState, MobileErrorState, MobileLoadingState } from "@/components/shell";
+import { badgeCategoryLabel } from "@/features/profiles/components/profile-experience-sections";
 
 const badgeLabel = (badge: UserBadge) =>
   badge.formattedValue || badge.displayValue
     ? `${badge.name} • ${badge.formattedValue ?? badge.displayValue}`
     : badge.name;
+
+const badgeMeta = (badge: UserBadge) => {
+  const earned = badge.earnedDate || badge.earnedAt;
+  const earnedLabel = earned
+    ? new Intl.DateTimeFormat("en-PH", {
+        day: "numeric",
+        month: "short",
+        year: "numeric",
+      }).format(new Date(earned))
+    : null;
+  const status =
+    badge.verificationStatus === "verified"
+      ? "Verified"
+      : badge.verificationStatus === "pending"
+        ? "Pending"
+        : badge.verificationStatus === "rejected"
+          ? "Rejected"
+          : null;
+  return [status, earnedLabel].filter(Boolean).join(" · ");
+};
 
 export function ProfileBadgesSection({
   autoStats,
@@ -20,6 +41,13 @@ export function ProfileBadgesSection({
   isLoading: boolean;
 }) {
   const items = [...badges, ...autoStats];
+  const grouped = new Map<string, UserBadge[]>();
+
+  for (const badge of items) {
+    const current = grouped.get(badge.category) ?? [];
+    current.push(badge);
+    grouped.set(badge.category, current);
+  }
 
   if (isLoading && items.length === 0) {
     return <MobileLoadingState message="Loading badges." />;
@@ -44,18 +72,29 @@ export function ProfileBadgesSection({
   }
 
   return (
-    <View className="flex-row flex-wrap gap-2">
-      {items.slice(0, 12).map((badge) => (
-        <View
-          key={badge.id}
-          className="rounded-full border border-border bg-card px-3 py-2"
-        >
-          <Text className="text-xs font-semibold text-foreground">
-            {badgeLabel(badge)}
+    <View className="gap-4">
+      {Array.from(grouped.entries()).map(([category, categoryItems]) => (
+        <View key={category} className="gap-2">
+          <Text className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+            {badgeCategoryLabel(category)}
           </Text>
-          <Text className="text-xs text-muted-foreground">
-            {badge.verificationStatus}
-          </Text>
+          <View className="flex-row flex-wrap gap-2">
+            {categoryItems.map((badge) => (
+              <View
+                key={badge.id}
+                className="rounded-2xl border border-border bg-card px-3 py-2"
+              >
+                <Text className="text-xs font-semibold text-foreground">
+                  {badgeLabel(badge)}
+                </Text>
+                {badgeMeta(badge) ? (
+                  <Text className="mt-1 text-xs text-muted-foreground">
+                    {badgeMeta(badge)}
+                  </Text>
+                ) : null}
+              </View>
+            ))}
+          </View>
         </View>
       ))}
     </View>
