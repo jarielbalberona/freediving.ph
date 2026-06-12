@@ -27,6 +27,7 @@ Create `apps/mobile/.env` with:
 EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_test_replace_me
 EXPO_PUBLIC_API_BASE_URL=http://localhost:4000
 EXPO_PUBLIC_SENTRY_DSN=
+EXPO_PUBLIC_METRO_PORT=4081
 ```
 
 `EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY` and `EXPO_PUBLIC_API_BASE_URL` are required.
@@ -45,6 +46,8 @@ Start Metro:
 ```bash
 pnpm -C apps/mobile start
 ```
+
+This app reserves Metro port `4081` so it can run beside other Expo apps in the workspace.
 
 Start Metro for a development build:
 

@@ -88,7 +88,7 @@ pnpm dev:web
 
 Default local URLs:
 
-- Web: `http://localhost:3000`
+- Web: `http://localhost:4001`
 - API: `http://localhost:4000`
 
 ## Environment variables
@@ -117,10 +117,10 @@ Manual monitoring smoke after deployment: with `NEXT_PUBLIC_SENTRY_DSN` and `SEN
 
 **Go API (`services/fphgo/.env`)** – see `services/fphgo/.env.example`. Typical local values:
 
-- `DB_DSN=postgres://postgres:postgres@localhost:5433/fph?sslmode=disable`
+- `DB_DSN=postgres://postgres:postgres@localhost:4432/fph?sslmode=disable`
 - `PORT=4000`
 - `APP_ENV=development`
-- `CORS_ORIGINS=http://localhost:3000`
+- `CORS_ORIGINS=http://localhost:4001`
 
 For Render-style deployment values, use `env.render.example` together with `render.yaml`.
 

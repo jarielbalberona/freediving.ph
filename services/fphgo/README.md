@@ -78,6 +78,12 @@ Websocket example:
 
 ```bash
 wscat -c "ws://localhost:4000/ws" -H "Authorization: Bearer ${TOKEN}"
+
+Local port convention:
+
+- API: `http://localhost:4000`
+- Web origin for local CORS: `http://localhost:4001`
+- PostgreSQL host port: `4432`
 ```
 
 ## PSGC Location Seed

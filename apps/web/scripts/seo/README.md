@@ -20,7 +20,7 @@ Defaults are safe for local work:
 
 ```bash
 SEO_SERP_PROVIDER=mock
-SEO_TARGET_BASE_URL=http://localhost:3000
+SEO_TARGET_BASE_URL=http://localhost:4001
 SEO_SERP_CACHE_TTL_HOURS=168
 SEO_SERP_MAX_RESULTS=10
 

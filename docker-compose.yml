@@ -8,7 +8,7 @@ services:
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: fph
     ports:
-      - "5433:5432"
+      - "4432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -30,7 +30,7 @@ services:
       LOG_LEVEL: debug
       PORT: 4000
       DB_DSN: postgres://postgres:postgres@database:5432/fph?sslmode=disable
-      CORS_ORIGINS: http://localhost:3000
+      CORS_ORIGINS: http://localhost:4001
       DEV_AUTH: "true"
       API_BASE_URL: http://localhost:4000
       FPHGO_BASE_URL: http://localhost:4000
