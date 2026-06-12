@@ -73,6 +73,11 @@ pnpm dev:web
 ```
 
 Compose starts PostgreSQL, waits for database health, runs the Go migrations, then starts `fphgo` with local `DEV_AUTH=true` on `http://localhost:4000`.
+The container now runs from the image contents instead of a host bind mount, which avoids `/Volumes` mount failures on this workspace. If you change Go source, rebuild or restart the service:
+
+```bash
+docker compose up -d --build fphgo
+```
 
 **Option B – Local Go API**
 

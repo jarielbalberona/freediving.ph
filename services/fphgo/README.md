@@ -84,6 +84,12 @@ Local port convention:
 - API: `http://localhost:4000`
 - Web origin for local CORS: `http://localhost:4001`
 - PostgreSQL host port: `4432`
+
+Docker local-dev note:
+
+- `docker compose up --build fphgo` runs the API from the image contents, not a live bind mount
+- this avoids host-mount failures from the `/Volumes/...` workspace path
+- source edits require rebuilding/restarting the container instead of automatic host-file hot reload
 ```
 
 ## PSGC Location Seed

@@ -43,9 +43,7 @@ services:
       CHIKA_PSEUDONYM_SECRET: local-dev-chika-pseudonym-secret
     ports:
       - "4000:4000"
-    volumes:
-      - ./services/fphgo:/app
-    command: sh -lc "make migrate-up && air -c .air.toml"
+    command: sh -c "make migrate-up && air -c .air.toml"
     healthcheck:
       test: ["CMD-SHELL", "wget -q -O- http://127.0.0.1:4000/healthz >/dev/null || exit 1"]
       interval: 5s
