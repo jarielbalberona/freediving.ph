@@ -54,10 +54,10 @@
     "typescript": "~6.0.3"
   },
   "scripts": {
-    "start": "expo start",
-    "android": "expo run:android",
+    "start": "expo start --port 4081",
+    "android": "expo run:android --port 4081",
     "doctor": "npx expo-doctor",
-    "ios": "expo run:ios",
+    "ios": "expo run:ios --port 4081",
     "web": "expo start --web",
     "lint": "biome lint app src test app.json babel.config.cjs metro.config.cjs tailwind.config.cjs",
     "format": "biome format --write .",
