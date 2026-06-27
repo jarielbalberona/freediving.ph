@@ -5,6 +5,7 @@ export { MobileDrawerContent } from "./mobile-drawer-content";
 export { MobileEmptyState } from "./mobile-empty-state";
 export { MobileErrorState } from "./mobile-error-state";
 export { MobileLoadingState } from "./mobile-loading-state";
+export { MobileThemedBottomSheet } from "./mobile-themed-bottom-sheet";
 export {
   IOS_NATIVE_STACK_SCREEN_OPTIONS,
   USE_IOS_NATIVE_HEADER,

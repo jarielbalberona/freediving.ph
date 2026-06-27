@@ -53,6 +53,22 @@ EventEmitter.prototype.emit = function emit(eventName, payload, ...args) {
 
 const config = getDefaultConfig(__dirname);
 
+config.watchFolders = Array.from(
+  new Set([...config.watchFolders, path.join(__dirname, "node_modules")]),
+);
+
+config.resolver.extraNodeModules = {
+  ...config.resolver.extraNodeModules,
+  expo: path.dirname(require.resolve("expo/package.json")),
+  "@expo/vector-icons": path.dirname(
+    require.resolve("@expo/vector-icons/package.json"),
+  ),
+};
+
+config.resolver.assetExts = Array.from(
+  new Set([...config.resolver.assetExts, "wasm"]),
+);
+
 module.exports = withNativeWind(config, {
   input: "./src/global.css",
 });

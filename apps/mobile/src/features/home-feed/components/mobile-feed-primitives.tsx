@@ -1,5 +1,4 @@
-import Ionicons from "@expo/vector-icons/Ionicons";
-import { BottomSheet } from "@expo/ui";
+import { Ionicons } from "@expo/vector-icons";
 import { PagerView } from "@expo/ui/community/pager-view";
 import { Galeria } from "@nandorojo/galeria";
 import { Image } from "expo-image";
@@ -13,6 +12,7 @@ import {
   View,
 } from "react-native";
 
+import { MobileThemedBottomSheet } from "@/components/shell/mobile-themed-bottom-sheet";
 import type {
   HomeActivityCardModel,
   HomeActivityMediaItem,
@@ -151,7 +151,7 @@ export function MobileFeedOverflowMenu({
   visible: boolean;
 }) {
   return (
-    <BottomSheet isPresented={visible} onDismiss={onClose}>
+    <MobileThemedBottomSheet isPresented={visible} onDismiss={onClose}>
       <View className="gap-4 bg-background pb-6">
         <View>
           <Text className="mb-1 text-base font-semibold text-foreground">
@@ -178,7 +178,7 @@ export function MobileFeedOverflowMenu({
           </Pressable>
         ) : null}
       </View>
-    </BottomSheet>
+    </MobileThemedBottomSheet>
   );
 }
 

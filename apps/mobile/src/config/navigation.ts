@@ -3,7 +3,7 @@ import {
   APP_DRAWER_NAV_ITEMS,
   type AppNavId,
 } from "@freediving.ph/types";
-import Ionicons from "@expo/vector-icons/Ionicons";
+import { Ionicons } from "@expo/vector-icons";
 import type { ComponentType } from "react";
 import { createElement } from "react";
 import type { ColorValue } from "react-native";

@@ -1,4 +1,4 @@
-import Ionicons from "@expo/vector-icons/Ionicons";
+import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "@clerk/expo";
 import { Stack, useLocalSearchParams } from "expo-router";
 import { useState } from "react";

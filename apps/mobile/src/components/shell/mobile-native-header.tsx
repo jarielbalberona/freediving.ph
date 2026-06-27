@@ -1,5 +1,5 @@
 import { useAuth } from "@clerk/expo";
-import Ionicons from "@expo/vector-icons/Ionicons";
+import { Ionicons } from "@expo/vector-icons";
 import { router, useNavigation } from "expo-router";
 import { Image, Pressable, Text, View } from "react-native";
 

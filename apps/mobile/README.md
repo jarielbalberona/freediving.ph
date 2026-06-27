@@ -26,11 +26,14 @@ Create `apps/mobile/.env` with:
 ```bash
 EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_test_replace_me
 EXPO_PUBLIC_API_BASE_URL=http://localhost:4000
+EXPO_PUBLIC_API_BASE_URL_WEB=http://localhost:4000
 EXPO_PUBLIC_SENTRY_DSN=
 EXPO_PUBLIC_METRO_PORT=4081
 ```
 
 `EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY` and `EXPO_PUBLIC_API_BASE_URL` are required.
+`EXPO_PUBLIC_API_BASE_URL_WEB` is optional and overrides the API base URL only
+when running Expo Web.
 `EXPO_PUBLIC_SENTRY_DSN` is optional.
 
 ## Development

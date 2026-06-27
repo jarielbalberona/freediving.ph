@@ -104,7 +104,7 @@ export function loadSeoConfig(
     targetBaseUrl:
       stringArg(args["target-base-url"]) ??
       env.SEO_TARGET_BASE_URL ??
-      "http://localhost:3000",
+      "http://localhost:4001",
     cacheTtlHours: parsePositiveInt(
       stringArg(args["cache-ttl-hours"]) ?? env.SEO_SERP_CACHE_TTL_HOURS,
       168,

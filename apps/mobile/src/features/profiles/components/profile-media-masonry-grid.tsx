@@ -1,6 +1,6 @@
 import { FlashList } from "@shopify/flash-list";
 import { Galeria } from "@nandorojo/galeria";
-import Ionicons from "@expo/vector-icons/Ionicons";
+import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { Link } from "expo-router";
 import type { Href } from "expo-router";

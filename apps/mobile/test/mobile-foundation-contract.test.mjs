@@ -12,19 +12,51 @@ test("mobile package aligns with repository tooling decisions", () => {
 
   assert.equal(
     pkg.scripts.lint,
-    "biome lint app src test app.json babel.config.cjs metro.config.cjs tailwind.config.cjs",
+    "biome lint app src test index.js app.json babel.config.cjs metro.config.cjs tailwind.config.cjs",
   );
+  assert.equal(pkg.main, "index.js");
   assert.ok(!JSON.stringify(pkg).includes("eslint"));
   assert.ok(!JSON.stringify(pkg).includes("prettier"));
   assert.ok(!pkg.scripts["reset-project"]);
   assert.ok(!pkg.dependencies.axios);
   assert.ok(!pkg.dependencies["drizzle-orm"]);
   assert.ok(pkg.dependencies["expo-sqlite"]);
-  assert.equal(pkg.dependencies["@expo/ui"], "~56.0.15");
-  assert.equal(pkg.dependencies["@expo/metro-runtime"], "^56.0.13");
+  assert.equal(pkg.dependencies["@expo/ui"], "~56.0.18");
+  assert.equal(pkg.dependencies["@expo/metro-runtime"], "~56.0.15");
   assert.ok(pkg.dependencies["@expo/vector-icons"]);
   assert.ok(!pkg.dependencies["lucide-react-native"]);
   assert.ok(!pkg.dependencies["expo-glass-effect"]);
+
+  const metroConfig = read("metro.config.cjs");
+  assert.match(metroConfig, /watchFolders/);
+  assert.match(metroConfig, /path\.join\(__dirname, "node_modules"\)/);
+  assert.match(metroConfig, /extraNodeModules/);
+  assert.match(metroConfig, /require\.resolve\("expo\/package\.json"\)/);
+  assert.match(metroConfig, /@expo\/vector-icons/);
+  assert.match(metroConfig, /assetExts/);
+  assert.match(metroConfig, /"wasm"/);
+
+  const entry = read("index.js");
+  assert.match(entry, /expo-router\/entry/);
+
+  const iconSubpathImports = [
+    "app/(app)/(tabs)/_layout.tsx",
+    "app/(app)/(tabs)/_layout.web.tsx",
+    "src/components/shell/mobile-native-header.tsx",
+    "src/components/social/social-primitives.tsx",
+    "src/config/navigation.ts",
+    "src/features/home-feed/components/mobile-feed-items.tsx",
+    "src/features/home-feed/components/mobile-feed-primitives.tsx",
+    "src/features/media/components/media-post-comments-sheet.tsx",
+    "src/features/media/screens/media-post-detail-screen.tsx",
+    "src/features/profiles/components/profile-badges-section.tsx",
+    "src/features/profiles/components/profile-experience-sections.tsx",
+    "src/features/profiles/components/profile-media-masonry-grid.tsx",
+    "src/features/profiles/components/profile-tabs.tsx",
+  ];
+  for (const filePath of iconSubpathImports) {
+    assert.doesNotMatch(read(filePath), /@expo\/vector-icons\/Ionicons/);
+  }
 });
 
 test("mobile routes stay thin and shell-backed", () => {
@@ -68,6 +100,7 @@ test("native tabs expose mobile search without fake search plumbing", () => {
   const sharedNav = read("../../packages/types/src/navigation.ts");
   const mobileNav = read("src/config/navigation.ts");
   const tabsLayout = read("app/(app)/(tabs)/_layout.tsx");
+  const webTabsLayout = read("app/(app)/(tabs)/_layout.web.tsx");
   const nativeHeader = read("src/components/shell/mobile-native-header.tsx");
   const homeLayout = read("app/(app)/(tabs)/(home)/_layout.tsx");
   const createRoute = read("app/(app)/(tabs)/create/index.tsx");
@@ -100,6 +133,9 @@ test("native tabs expose mobile search without fake search plumbing", () => {
   );
   assert.match(tabsLayout, /role=\{item\.role\}/);
   assert.match(tabsLayout, /minimizeBehavior: "onScrollDown"/);
+  assert.match(webTabsLayout, /import \{ Ionicons \} from "@expo\/vector-icons"/);
+  assert.match(webTabsLayout, /import \{ Tabs \} from "expo-router"/);
+  assert.doesNotMatch(webTabsLayout, /unstable-native-tabs|Trigger\.VectorIcon/);
   assert.match(createRoute, /CreateScreen/);
   assert.match(createScreen, /MediaComposerSheet/);
   assert.match(createScreen, /Photos and moments/);
@@ -181,11 +217,16 @@ test("native tabs expose mobile search without fake search plumbing", () => {
 test("required environment contract is documented", () => {
   const example = read(".env.example");
   const readme = read("README.md");
+  const envModule = read("src/lib/env/env.ts");
 
   assert.match(example, /EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY=/);
   assert.match(example, /EXPO_PUBLIC_API_BASE_URL=/);
+  assert.match(example, /EXPO_PUBLIC_API_BASE_URL_WEB=/);
   assert.match(readme, /EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY=/);
   assert.match(readme, /EXPO_PUBLIC_API_BASE_URL=/);
+  assert.match(readme, /EXPO_PUBLIC_API_BASE_URL_WEB=/);
+  assert.match(envModule, /Platform\.OS === "web"/);
+  assert.match(envModule, /EXPO_PUBLIC_API_BASE_URL_WEB/);
   assert.match(readme, /Biome/);
   assert.doesNotMatch(readme, /ESLint/);
   assert.doesNotMatch(readme, /Prettier/);
@@ -203,10 +244,58 @@ test("protected fphgo query helper gates on Clerk readiness", () => {
 
 test("signed-out users have a public shell entry from auth screens", () => {
   const authScreen = read("src/features/auth/auth-screen.tsx");
+  const webAuthScreen = read("src/features/auth/auth-screen.web.tsx");
+  const createRoute = read("app/(app)/(tabs)/create/index.tsx");
+  const messagesRoute = read("app/(app)/(tabs)/messages/index.tsx");
+  const profileRoute = read("app/(app)/(tabs)/profile/index.tsx");
 
   assert.match(authScreen, /Continue without signing in/);
   assert.match(authScreen, /href="\/\(app\)\/\(tabs\)\/\(home\)"/);
   assert.match(authScreen, /AuthView isDismissable=\{false\}/);
+  assert.match(webAuthScreen, /Continue without signing in/);
+  assert.match(webAuthScreen, /href="\/\(app\)\/\(tabs\)\/\(home\)"/);
+  assert.doesNotMatch(webAuthScreen, /@clerk\/expo\/native|AuthView/);
+  assert.match(profileRoute, /AuthScreen/);
+  assert.match(profileRoute, /mode="signIn"/);
+  assert.doesNotMatch(profileRoute, /PublicProfileScreen/);
+  for (const tabRoute of [createRoute, messagesRoute, profileRoute]) {
+    assert.match(tabRoute, /AuthScreen/);
+    assert.match(tabRoute, /mode="signIn"/);
+    assert.doesNotMatch(tabRoute, /MobileAuthRequired/);
+  }
+});
+
+test("mobile theme mode can override system appearance", () => {
+  const providers = read("src/providers/app-providers.tsx");
+  const themeProvider = read("src/providers/mobile-theme-provider.tsx");
+  const themedSheet = read("src/components/shell/mobile-themed-bottom-sheet.tsx");
+  const tokens = read("src/theme/tokens.ts");
+  const rootLayout = read("app/_layout.tsx");
+  const tailwindConfig = read("tailwind.config.cjs");
+
+  assert.match(providers, /MobileThemeProvider/);
+  assert.match(rootLayout, /useMobileTheme/);
+  assert.match(rootLayout, /ThemeProvider/);
+  assert.match(rootLayout, /DarkTheme/);
+  assert.match(rootLayout, /<StatusBar style=\{statusBarStyle\}/);
+  assert.match(themeProvider, /ThemePreference = MobileThemeName \| "system"/);
+  assert.match(themeProvider, /useColorScheme/);
+  assert.match(themeProvider, /useState<ThemePreference>\("light"\)/);
+  assert.match(themeProvider, /mobileThemeVars\[resolvedTheme\]/);
+  assert.match(themeProvider, /className=\{\s*resolvedTheme === "dark"/);
+  assert.match(themeProvider, /SystemUI\.setBackgroundColorAsync/);
+  assert.doesNotMatch(themeProvider, /Appearance\.setColorScheme/);
+  assert.match(themeProvider, /moon-outline/);
+  assert.match(themeProvider, /sunny-outline/);
+  assert.match(tokens, /import \{ vars \} from "nativewind"/);
+  assert.match(tokens, /mobileSemanticTheme/);
+  assert.match(tokens, /mobileThemeVars/);
+  assert.match(tailwindConfig, /background: "var\(--color-background\)"/);
+  assert.match(tailwindConfig, /foreground: "var\(--color-foreground\)"/);
+  assert.match(themedSheet, /RNHostView/);
+  assert.match(themedSheet, /fillMaxWidth/);
+  assert.match(themedSheet, /data-vaul-drawer/);
+  assert.match(themedSheet, /theme\.card/);
 });
 
 test("home feed uses shared activity contracts and fetch client", () => {
@@ -942,10 +1031,16 @@ test("local Phase 3 storage is bounded to drafts and sync outbox", () => {
   const database = read("src/local/db/database.ts");
   const types = read("src/local/db/types.ts");
   const draftRepo = read("src/local/drafts/drafts-repository.ts");
+  const webDraftRepo = read("src/local/drafts/drafts-repository.web.ts");
   const outboxRepo = read("src/local/outbox/outbox-repository.ts");
+  const webOutboxRepo = read("src/local/outbox/outbox-repository.web.ts");
   const supported = read("src/local/outbox/supported-operations.ts");
 
   assert.match(database, /expo-sqlite/);
+  assert.doesNotMatch(webDraftRepo, /expo-sqlite|getLocalDatabase/);
+  assert.doesNotMatch(webOutboxRepo, /expo-sqlite|getLocalDatabase/);
+  assert.match(webDraftRepo, /new Map<string, StoredLocalDraft>/);
+  assert.match(webOutboxRepo, /new Map<string, StoredOutboxItem>/);
   assert.match(database, /CREATE TABLE IF NOT EXISTS local_drafts/);
   assert.match(database, /CREATE TABLE IF NOT EXISTS sync_outbox/);
   assert.match(database, /CREATE TABLE IF NOT EXISTS local_media_queue/);

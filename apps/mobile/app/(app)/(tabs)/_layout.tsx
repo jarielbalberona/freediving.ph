@@ -2,7 +2,7 @@ import {
   NativeTabs,
   type NativeTabsTriggerIconProps,
 } from "expo-router/unstable-native-tabs";
-import Ionicons from "@expo/vector-icons/Ionicons";
+import { Ionicons } from "@expo/vector-icons";
 import { DynamicColorIOS } from "react-native";
 
 import { MOBILE_BOTTOM_NAV_ITEMS } from "@/config/navigation";

@@ -1,6 +1,5 @@
-import { BottomSheet, Host } from "@expo/ui";
 import { useAuth, useUser } from "@clerk/expo";
-import Ionicons from "@expo/vector-icons/Ionicons";
+import { Ionicons } from "@expo/vector-icons";
 import type { MediaPostComment } from "@freediving.ph/types";
 import { Keyboard } from "react-native";
 import { useState } from "react";
@@ -19,6 +18,7 @@ import {
 
 import { UserIdentityRow } from "@/components/social";
 import { MobileErrorState } from "@/components/shell";
+import { MobileThemedBottomSheet } from "@/components/shell/mobile-themed-bottom-sheet";
 import {
   useCreateMediaPostCommentMutation,
   useDeleteMediaPostCommentMutation,
@@ -185,30 +185,29 @@ export function MediaPostCommentsSheet({
   const composerPlaceholder = canPost ? "Write a comment..." : "Sign in to comment.";
 
   return (
-    <Host matchContents>
-      <BottomSheet
-        isPresented={visible}
-        onDismiss={onClose}
-        snapPoints={[{ fraction: 0.6 }, "full"]}
+    <MobileThemedBottomSheet
+      isPresented={visible}
+      onDismiss={onClose}
+      snapPoints={[{ fraction: 0.6 }, "full"]}
+    >
+      <KeyboardAvoidingView
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        className="flex-1"
+        keyboardVerticalOffset={Platform.OS === "ios" ? 16 : 0}
       >
-        <KeyboardAvoidingView
-          behavior={Platform.OS === "ios" ? "padding" : "height"}
-          className="flex-1"
-          keyboardVerticalOffset={Platform.OS === "ios" ? 16 : 0}
-        >
-          <View className="max-w-full pt-3" style={{ flex: 1, width: sheetWidth }}>
-            <View className="w-full border-b border-slate-900/10 px-4 pb-3">
-              <Text className="w-full text-center text-base font-bold text-slate-900">
-                Comments
-              </Text>
-            </View>
+        <View className="max-w-full bg-card pt-3" style={{ flex: 1, width: sheetWidth }}>
+          <View className="w-full border-b border-border/40 px-4 pb-3">
+            <Text className="w-full text-center text-base font-bold text-foreground">
+              Comments
+            </Text>
+          </View>
 
-            <ScrollView
-              className="w-full"
-              contentContainerClassName="pb-5 pt-4"
-              keyboardShouldPersistTaps="always"
-              style={{ flex: 1 }}
-            >
+          <ScrollView
+            className="w-full"
+            contentContainerClassName="pb-5 pt-4"
+            keyboardShouldPersistTaps="always"
+            style={{ flex: 1 }}
+          >
               <View className="w-full gap-3">
                 {commentsQuery.isLoading ? (
                   <View style={styles.loadingRow}>
@@ -229,7 +228,7 @@ export function MediaPostCommentsSheet({
                       className="min-h-10 items-center justify-center rounded-full bg-secondary/90 px-4"
                       onPress={() => void commentsQuery.refetch()}
                     >
-                      <Text className="text-sm font-bold text-slate-900">Try again</Text>
+                      <Text className="text-sm font-bold text-foreground">Try again</Text>
                     </Pressable>
                   </View>
                 ) : null}
@@ -278,7 +277,7 @@ export function MediaPostCommentsSheet({
 
               <View className="w-full flex-row items-end rounded-[28px] bg-secondary/85 py-1 pl-4 pr-2">
                 <TextInput
-                  className="max-h-32 min-h-10 flex-1 py-2.5 pr-3 text-sm leading-5 text-slate-900"
+                  className="max-h-32 min-h-10 flex-1 py-2.5 pr-3 text-sm leading-5 text-foreground"
                   editable={!createComment.isPending && canPost}
                   multiline
                   onChangeText={setDraft}
@@ -312,10 +311,9 @@ export function MediaPostCommentsSheet({
                 </Pressable>
               </View>
             </View>
-          </View>
-        </KeyboardAvoidingView>
-      </BottomSheet>
-    </Host>
+        </View>
+      </KeyboardAvoidingView>
+    </MobileThemedBottomSheet>
   );
 }
 

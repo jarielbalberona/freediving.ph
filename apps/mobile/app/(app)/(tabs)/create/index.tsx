@@ -1,10 +1,9 @@
-import { MobileAuthRequired } from "@/components/shell/mobile-auth-required";
+import { useAuth } from "@clerk/expo";
+
+import { AuthScreen } from "@/features/auth/auth-screen";
 import { CreateScreen } from "@/features/create/screens/create-screen";
 
 export default function CreateRoute() {
-  return (
-    <MobileAuthRequired>
-      <CreateScreen />
-    </MobileAuthRequired>
-  );
+  const { isSignedIn } = useAuth();
+  return isSignedIn ? <CreateScreen /> : <AuthScreen mode="signIn" />;
 }

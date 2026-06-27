@@ -39,6 +39,7 @@ test("mobile profile core uses shared badge and dive identity contracts", () => 
     assert.match(api, new RegExp(pathPart));
   }
   assert.match(actionSheet, /ScrollView/);
+  assert.match(actionSheet, /MobileThemedBottomSheet/);
   assert.match(
     actionSheet,
     /className=\"w-full border-b border-border\/40 px-4 pb-3\"/,
