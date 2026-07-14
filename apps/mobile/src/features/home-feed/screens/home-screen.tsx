@@ -1,6 +1,6 @@
 import { useAuth } from "@clerk/expo";
 import { useCallback, useMemo, useState } from "react";
-import { FlatList, Text, View } from "react-native";
+import { FlatList, Text, View, type ViewToken } from "react-native";
 
 import type { ActivityFeedItem } from "@freediving.ph/types";
 
@@ -20,6 +20,7 @@ export function HomeScreen() {
   const feedQuery = useHomeActivityFeedQuery();
   const feedAction = useFeedActionMutation();
   const [actionMessage, setActionMessage] = useState<string | undefined>();
+  const [activeVideoItemId, setActiveVideoItemId] = useState<string>();
   const items = useMemo(
     () => feedQuery.data?.pages.flatMap((page) => page.items) ?? [],
     [feedQuery.data],
@@ -123,6 +124,7 @@ export function HomeScreen() {
       <MobileFeedItemRenderer
         actionsDisabled={!canUseFeedActions || feedAction.isPending}
         item={item}
+        videoActive={activeVideoItemId === item.id}
         onChikaVote={(_, _card, reaction) =>
           requireSignedIn()
             ? mutateFeedAction({
@@ -151,6 +153,7 @@ export function HomeScreen() {
     [
       canUseFeedActions,
       feedAction.isPending,
+      activeVideoItemId,
       mutateFeedAction,
       requireSignedIn,
     ],
@@ -174,6 +177,14 @@ export function HomeScreen() {
         }
       }}
       onEndReachedThreshold={0.25}
+      onViewableItemsChanged={({ viewableItems }: { viewableItems: ViewToken<ActivityFeedItem>[] }) => {
+        const activeMoment = viewableItems.find(
+          (entry) =>
+            entry.isViewable && entry.item.media?.some((media) => media.type === "video"),
+        );
+        setActiveVideoItemId(activeMoment?.item.id);
+      }}
+      viewabilityConfig={{ itemVisiblePercentThreshold: 60 }}
       onRefresh={() => void feedQuery.refetch()}
       removeClippedSubviews={false}
       refreshing={feedQuery.isRefetching && !feedQuery.isFetchingNextPage}

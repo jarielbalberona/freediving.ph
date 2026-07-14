@@ -6,6 +6,7 @@ import {
   getExploreSitePresence,
   getExploreSiteRelated,
   getExploreSiteReviews,
+  getDiveSiteMoments,
 } from "@/features/explore/api/explore-api";
 import { mobileQueryKeys } from "@/lib/query";
 
@@ -14,6 +15,15 @@ export function useExploreSiteRelatedQuery(slug: string | undefined) {
     enabled: Boolean(slug),
     queryFn: () => getExploreSiteRelated(slug ?? ""),
     queryKey: mobileQueryKeys.explore.related(slug ?? ""),
+    staleTime: 60 * 1000,
+  });
+}
+
+export function useDiveSiteMomentsQuery(siteId: string | undefined) {
+  return useQuery({
+    enabled: Boolean(siteId),
+    queryFn: () => getDiveSiteMoments(siteId ?? ""),
+    queryKey: mobileQueryKeys.explore.moments(siteId ?? ""),
     staleTime: 60 * 1000,
   });
 }

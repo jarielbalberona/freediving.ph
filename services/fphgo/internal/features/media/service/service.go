@@ -83,6 +83,7 @@ type repository interface {
 	MarkMomentReady(ctx context.Context, input mediarepo.MomentStatusUpdate) (mediarepo.MediaItem, error)
 	MarkMomentFailed(ctx context.Context, input mediarepo.MomentStatusUpdate) (mediarepo.MediaItem, error)
 	MarkExpiredMomentUploadsFailed(ctx context.Context, now time.Time, failedReason string) (int64, error)
+	ListPendingMomentStreamUIDs(ctx context.Context, limit int32) ([]string, error)
 	CreateMediaPostComment(ctx context.Context, postID, authorUserID, body string) (mediarepo.MediaPostComment, error)
 	GetMediaPostComment(ctx context.Context, postID, commentID, viewerUserID string) (mediarepo.MediaPostComment, error)
 	ListMediaPostComments(ctx context.Context, input mediarepo.ListMediaPostCommentsInput) ([]mediarepo.MediaPostComment, error)
@@ -1208,6 +1209,56 @@ func (s *Service) RunExpiredMomentCleanupProcessor(ctx context.Context, interval
 	}
 }
 
+func (s *Service) HandleMomentStreamWebhook(ctx context.Context, streamUID string) error {
+	streamUID = strings.TrimSpace(streamUID)
+	if streamUID == "" {
+		return apperrors.New(http.StatusBadRequest, "invalid_webhook", "Moment webhook is missing a video id", nil)
+	}
+	if _, err := s.repo.GetMomentMediaItemByStreamUID(ctx, streamUID); err != nil {
+		if mediarepo.IsNoRows(err) {
+			// Stream webhooks are account-wide. Ignore videos not created by this app.
+			return nil
+		}
+		return apperrors.New(http.StatusInternalServerError, "moment_lookup_failed", "Failed to load Moment", err)
+	}
+	_, err := s.syncMomentStreamStatus(ctx, streamUID)
+	return err
+}
+
+func (s *Service) ReconcilePendingMoments(ctx context.Context, limit int32) error {
+	if s.stream == nil {
+		return nil
+	}
+	if limit <= 0 || limit > 100 {
+		limit = 25
+	}
+	uids, err := s.repo.ListPendingMomentStreamUIDs(ctx, limit)
+	if err != nil {
+		return apperrors.New(http.StatusInternalServerError, "moment_reconcile_failed", "Failed to list pending Moments", err)
+	}
+	for _, uid := range uids {
+		_, _ = s.syncMomentStreamStatus(ctx, uid)
+	}
+	return nil
+}
+
+func (s *Service) RunMomentStatusReconciler(ctx context.Context, interval time.Duration, batchSize int32) {
+	if interval <= 0 {
+		interval = time.Minute
+	}
+	_ = s.ReconcilePendingMoments(ctx, batchSize)
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			_ = s.ReconcilePendingMoments(ctx, batchSize)
+		}
+	}
+}
+
 func (s *Service) syncMomentStreamStatus(ctx context.Context, streamUID string) (mediarepo.MediaItem, error) {
 	if s.stream == nil {
 		return mediarepo.MediaItem{}, apperrors.New(http.StatusInternalServerError, "moments_stream_unavailable", "Moments video upload is not configured", nil)
@@ -1228,6 +1279,13 @@ func (s *Service) syncMomentStreamStatus(ctx context.Context, streamUID string) 
 			return mediarepo.MediaItem{}, apperrors.New(http.StatusInternalServerError, "moment_lookup_failed", "Failed to load Moment", err)
 		}
 		return item, nil
+	}
+	existing, err := s.repo.GetMomentMediaItemByStreamUID(ctx, streamUID)
+	if err != nil {
+		return mediarepo.MediaItem{}, apperrors.New(http.StatusInternalServerError, "moment_lookup_failed", "Failed to load Moment", err)
+	}
+	if existing.ProcessingStatus == "ready" {
+		return existing, nil
 	}
 	durationMs := int32(video.DurationSeconds * 1000)
 	if durationMs < 0 {

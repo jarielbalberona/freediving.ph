@@ -47,7 +47,9 @@ import {
   useExploreSitePresenceQuery,
   useExploreSiteRelatedQuery,
   useExploreSiteReviewsQuery,
+  useDiveSiteMomentsQuery,
 } from "@/features/explore/hooks/use-explore-site-related-query";
+import { MobileMomentPlayer } from "@/features/media/components/mobile-moment-player";
 import {
   formatDepthRange,
   titleCase,
@@ -223,6 +225,7 @@ export function ExploreSiteDetailScreen() {
   const [detailSaved, setDetailSaved] = useState(false);
   const data = detailQuery.data;
   const site = data?.site;
+  const momentsQuery = useDiveSiteMomentsQuery(site?.id);
   const [editForm, setEditForm] = useState<SiteEditFormState | null>(null);
   const [reportForm, setReportForm] = useState<CreateExploreSiteUpdateRequest>({
     conditionCurrent: "none",
@@ -713,6 +716,33 @@ export function ExploreSiteDetailScreen() {
             />
           </View>
         </MobileSection>
+
+        {momentsQuery.data?.items.length ? (
+          <MobileSection
+            description="Recent public Moments recorded at this dive spot."
+            title="Moments"
+          >
+            <View className="gap-3">
+              {momentsQuery.data.items.map((moment, index) => (
+                <View
+                  className="overflow-hidden rounded-2xl bg-secondary"
+                  key={moment.id}
+                >
+                  <MobileMomentPlayer
+                    accessibilityLabel={moment.caption || `${site.name} Moment`}
+                    active={index === 0}
+                    autoPlay={index === 0}
+                    controls={index !== 0}
+                    loop={index === 0}
+                    muted
+                    playback={moment.playback}
+                    playbackUrl={moment.playbackUrl}
+                  />
+                </View>
+              ))}
+            </View>
+          </MobileSection>
+        ) : null}
 
         <MobileSection title="Status">
           <View className="gap-3">

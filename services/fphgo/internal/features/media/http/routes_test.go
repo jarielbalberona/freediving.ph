@@ -1,10 +1,14 @@
 package http
 
 import (
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/hex"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 
@@ -13,6 +17,26 @@ import (
 	"fphgo/internal/shared/httpx"
 	"fphgo/internal/shared/validatex"
 )
+
+func TestVerifyStreamWebhookSignature(t *testing.T) {
+	now := time.Unix(1_720_000_000, 0)
+	body := []byte(`{"uid":"stream-123"}`)
+	rawTime := "1720000000"
+	mac := hmac.New(sha256.New, []byte("webhook-secret"))
+	_, _ = mac.Write([]byte(rawTime + "."))
+	_, _ = mac.Write(body)
+	header := "time=" + rawTime + ",sig1=" + hex.EncodeToString(mac.Sum(nil))
+
+	if err := verifyStreamWebhookSignature("webhook-secret", header, body, now); err != nil {
+		t.Fatalf("expected valid signature, got %v", err)
+	}
+	if err := verifyStreamWebhookSignature("wrong-secret", header, body, now); err == nil {
+		t.Fatal("expected invalid secret to fail")
+	}
+	if err := verifyStreamWebhookSignature("webhook-secret", header, body, now.Add(10*time.Minute)); err == nil {
+		t.Fatal("expected stale signature to fail")
+	}
+}
 
 func TestMediaRoutesRequireAuth(t *testing.T) {
 	router := Routes(New(nil, validatex.New()))

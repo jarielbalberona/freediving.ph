@@ -125,7 +125,9 @@ export function MediaPostComponent({
                   posterUrl={previewPlayback.posterUrl}
                   title={preview.alt}
                   muted
+                  autoPlay
                   controls={false}
+                  loop
                   playsInline
                   className="absolute inset-0"
                   videoClassName="object-cover"

@@ -59,7 +59,38 @@ test("profile create flow and masonry gallery are wired to the media posting sta
   assert.match(gallery, /MasonryPhotoAlbum/);
   assert.match(gallery, /react-photo-album\/masonry\.css/);
   assert.match(routes, /posts: \(\) => "\/v1\/media\/posts"/);
-  assert.match(routes, /profileMedia:[\s\S]*\/v1\/profiles\/\$\{toPathId\(username\)\}\/media/);
+  assert.match(
+    routes,
+    /profileMedia:[\s\S]*\/v1\/profiles\/\$\{toPathId\(username\)\}\/media/,
+  );
+});
+
+test("Moments autoplay only while visible and render on dive-site pages", async () => {
+  const [player, feedPost, diveSitePage] = await Promise.all([
+    fs.readFile(
+      path.join(repoRoot, "src/features/media/components/MomentPlayer.tsx"),
+      "utf8",
+    ),
+    fs.readFile(
+      path.join(
+        repoRoot,
+        "src/features/media/components/MediaPostComponent.tsx",
+      ),
+      "utf8",
+    ),
+    fs.readFile(
+      path.join(repoRoot, "src/app/explore/sites/[slug]/page.tsx"),
+      "utf8",
+    ),
+  ]);
+
+  assert.match(player, /IntersectionObserver/);
+  assert.match(player, /intersectionRatio >= 0\.6/);
+  assert.match(player, /visibilitychange/);
+  assert.match(feedPost, /autoPlay/);
+  assert.match(feedPost, /loop/);
+  assert.match(diveSitePage, /getDiveSiteMomentsServer/);
+  assert.match(diveSitePage, /<MomentPlayer/);
 });
 
 test("media dialog is wired as an in-place social post view", async () => {
@@ -277,8 +308,7 @@ test("Moment upload panel previews and validates selected local videos", async (
   assert.doesNotMatch(preview, /border border-border/);
   assert.match(panel, /<SelectedVideoPreview/);
   assert.match(composer, /<SelectedVideoPreview/);
-  assert.match(composer, /Moments are still in progress/);
-  assert.match(composer, /You can test choosing and previewing a video/);
+  assert.doesNotMatch(composer, /Moments are still in progress/);
   assert.match(composer, /className="-mx-3 sm:mx-0"/);
   assert.match(
     composer,

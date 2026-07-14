@@ -21,6 +21,7 @@ import type {
   ExploreSiteDetailResponse,
   ExploreSiteSubmissionListResponse,
   ExploreSiteSubmissionResponse,
+  ListProfileMediaResponse,
 } from "@freediving.ph/types";
 
 import { fphgoFetch } from "@/lib/api";
@@ -64,6 +65,14 @@ export const getExploreSiteDetail = (slug: string) =>
   fphgoFetch<ExploreSiteDetailResponse>(
     withQuery(`/v1/explore/sites/${encodeURIComponent(slug)}`, {
       updatesLimit: 5,
+    }),
+    { auth: "optional" },
+  );
+
+export const getDiveSiteMoments = (siteId: string) =>
+  fphgoFetch<ListProfileMediaResponse>(
+    withQuery(`/v1/media/dive-sites/${encodeURIComponent(siteId)}/moments`, {
+      limit: 12,
     }),
     { auth: "optional" },
   );

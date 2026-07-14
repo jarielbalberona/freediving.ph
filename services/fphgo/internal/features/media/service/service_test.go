@@ -353,6 +353,10 @@ func (f *fakeRepo) MarkExpiredMomentUploadsFailed(_ context.Context, now time.Ti
 	return count, nil
 }
 
+func (f *fakeRepo) ListPendingMomentStreamUIDs(_ context.Context, _ int32) ([]string, error) {
+	return nil, nil
+}
+
 func (f *fakeRepo) ListProfileMediaByUsername(_ context.Context, input mediarepo.ListProfileMediaInput) ([]mediarepo.ProfileMediaItem, error) {
 	f.lastProfileMediaInput = input
 	return f.profileMedia, nil

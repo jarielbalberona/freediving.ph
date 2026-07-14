@@ -12,6 +12,7 @@ func Routes(h *Handlers) chi.Router {
 
 	r.Get("/posts/{postId}", h.GetPost)
 	r.Get("/posts/{postId}/comments", h.ListPostComments)
+	r.Post("/moments/cloudflare-webhook", h.CloudflareStreamWebhook)
 
 	r.Group(func(write chi.Router) {
 		write.Use(middleware.RequireMember)

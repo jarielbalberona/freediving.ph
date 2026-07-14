@@ -23,6 +23,7 @@ type CommonFeedItemProps = {
   onChikaVote?: (reaction: ChikaReactionType | null) => void;
   onMediaLike?: () => void;
   onNotInterested?: () => void;
+  videoActive?: boolean;
 };
 
 function openHref(href: Href | undefined) {
@@ -116,6 +117,7 @@ export function MobileMediaFeedItem({
   item,
   onMediaLike,
   onNotInterested,
+  videoActive = false,
 }: CommonFeedItemProps) {
   const [commentsOpen, setCommentsOpen] = useState(false);
   const imageUrl = item.media?.previewUrl;
@@ -148,6 +150,8 @@ export function MobileMediaFeedItem({
           items={viewerItems}
           previewUrl={imageUrl}
           showMultipleBadge={hasMultipleItems}
+          autoPlayVideo
+          videoActive={videoActive}
         />
       ) : null}
       <MobileFeedActionRow

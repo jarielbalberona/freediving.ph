@@ -23,6 +23,7 @@ export type MobileFeedItemRendererProps = {
   ) => void;
   onMediaLike?: (item: ActivityFeedItem, card: HomeActivityCardModel) => void;
   onNotInterested?: (item: ActivityFeedItem, card: HomeActivityCardModel) => void;
+  videoActive?: boolean;
 };
 
 export function MobileFeedItemRenderer({
@@ -31,6 +32,7 @@ export function MobileFeedItemRenderer({
   onChikaVote,
   onMediaLike,
   onNotInterested,
+  videoActive = false,
 }: MobileFeedItemRendererProps) {
   const card = toHomeActivityCardModel(item);
   const commonProps = {
@@ -46,6 +48,7 @@ export function MobileFeedItemRenderer({
       return (
         <MobileMediaFeedItem
           {...commonProps}
+          videoActive={videoActive}
           onMediaLike={
             onMediaLike ? () => onMediaLike(item, card) : undefined
           }

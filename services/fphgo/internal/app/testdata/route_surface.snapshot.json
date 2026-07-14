@@ -950,6 +950,10 @@
     },
     {
       "method": "POST",
+      "pattern": "/v1/media/moments/cloudflare-webhook"
+    },
+    {
+      "method": "POST",
       "pattern": "/v1/media/moments/upload-intents"
     },
     {

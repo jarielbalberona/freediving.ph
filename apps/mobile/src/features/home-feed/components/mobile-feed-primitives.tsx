@@ -13,6 +13,8 @@ import {
 } from "react-native";
 
 import { MobileThemedBottomSheet } from "@/components/shell/mobile-themed-bottom-sheet";
+import { MobileMomentPlayer } from "@/features/media/components/mobile-moment-player";
+import type { MomentPlayback } from "@freediving.ph/types";
 import type {
   HomeActivityCardModel,
   HomeActivityMediaItem,
@@ -187,11 +189,15 @@ export function MobileMediaGalleryPreview({
   items,
   previewUrl,
   showMultipleBadge,
+  autoPlayVideo = false,
+  videoActive = true,
 }: {
   accessibilityLabel: string;
   items: MobileViewerMediaItem[];
   previewUrl: string;
   showMultipleBadge?: boolean;
+  autoPlayVideo?: boolean;
+  videoActive?: boolean;
 }) {
   const [activeIndex, setActiveIndex] = useState(0);
   const [viewportWidth, setViewportWidth] = useState(0);
@@ -221,6 +227,22 @@ export function MobileMediaGalleryPreview({
 
   if (mediaItems.length === 1) {
     const item = mediaItems[0];
+    if (item.type === "video") {
+      return (
+        <View className="overflow-hidden bg-secondary">
+          <MobileMomentPlayer
+            accessibilityLabel={accessibilityLabel}
+            active={videoActive}
+            autoPlay={autoPlayVideo}
+            controls={!autoPlayVideo}
+            loop={autoPlayVideo}
+            muted={autoPlayVideo}
+            playback={item.playback}
+            playbackUrl={item.playbackUrl}
+          />
+        </View>
+      );
+    }
     return (
       <Galeria closeIconName="xmark" theme="light" urls={viewerUrls}>
         <View
@@ -316,8 +338,11 @@ export type MobileViewerMediaItem = {
   displayUrl?: string;
   height?: number | null;
   id: string;
+  playback?: MomentPlayback | null;
+  playbackUrl?: string;
   previewUrl?: string;
   thumbnailUrl?: string;
+  type?: string;
   viewerUrl?: string;
   width?: number | null;
 };
@@ -362,8 +387,11 @@ export const viewerMediaItemsFromFeedMedia = (
       displayUrl: item.displayUrl,
       height: item.height ?? null,
       id: item.id,
+      playback: item.playback,
+      playbackUrl: item.playbackUrl,
       previewUrl: item.previewUrl,
       thumbnailUrl: item.thumbnailUrl,
+      type: item.type,
       viewerUrl:
         item.dialogUrl || item.displayUrl || item.previewUrl || item.thumbnailUrl,
       width: item.width ?? null,

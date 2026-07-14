@@ -1,6 +1,6 @@
 import { Image } from "expo-image";
 import * as ImagePicker from "expo-image-picker";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Text, TextInput, View } from "react-native";
 import { useAuth } from "@clerk/expo";
 import type { ImagePickerAsset } from "expo-image-picker";
@@ -48,6 +48,28 @@ export function MediaComposerSheet({ onClose }: MediaComposerSheetProps) {
   const selectedSite = selectedSiteId || sites[0]?.id || "";
   const busy =
     createPhotoPost.isPending || createMoment.isPending || syncMoment.isPending;
+
+  useEffect(() => {
+    if (!lastMomentPostId) return;
+    const interval = setInterval(() => {
+      if (syncMoment.isPending) return;
+      syncMoment.mutate(lastMomentPostId, {
+        onSuccess: (status) => {
+          if (status.status === "ready" || status.status === "failed") {
+            setLastMomentPostId("");
+          }
+          setMessage(
+            status.status === "ready"
+              ? "Moment is ready."
+              : status.status === "failed"
+                ? "Moment failed. Try another video."
+                : "Moment is still processing.",
+          );
+        },
+      });
+    }, 5_000);
+    return () => clearInterval(interval);
+  }, [lastMomentPostId, syncMoment]);
 
   const requireSignedIn = () => {
     if (!isLoaded) {

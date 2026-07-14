@@ -9,6 +9,7 @@ import type {
   ExploreSiteBuddyPreviewResponse,
   ExploreSiteDetailResponse,
   ExploreSiteRelatedResponse,
+  ListProfileMediaResponse,
 } from "@freediving.ph/types";
 
 import {
@@ -67,6 +68,11 @@ export const getExploreSiteAffinitiesServer = (slug: string, limit = 6) =>
 export const getExploreSiteReviewsServer = (slug: string, limit = 6) =>
   fphgoFetchPublicServer<DiveSiteReviewListResponse>(
     withQuery(routes.v1.explore.siteReviews(slug), { limit }),
+  );
+
+export const getDiveSiteMomentsServer = (siteId: string, limit = 12) =>
+  fphgoFetchPublicServer<ListProfileMediaResponse>(
+    withQuery(routes.v1.media.momentsByDiveSite(siteId), { limit }),
   );
 
 export const getExploreLatestUpdatesServer = (area?: string, cursor?: string, limit = 20) =>

@@ -319,7 +319,7 @@ func BuildDependencies(cfg config.Config, logger *slog.Logger, pool *pgxpool.Poo
 			cfg.CloudflareStreamRequireSignedURLs,
 		),
 	)
-	mediaHandler := mediahttp.New(mediaService, v)
+	mediaHandler := mediahttp.New(mediaService, v, cfg.CloudflareStreamWebhookSecret)
 	groupsRepo := groupsrepo.New(pool)
 	groupsService := groupsservice.New(groupsRepo, groupsservice.WithNotifications(notificationsService))
 	groupsHandler := groupshttp.New(groupsService, v)

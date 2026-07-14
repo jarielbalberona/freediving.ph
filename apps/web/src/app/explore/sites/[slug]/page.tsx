@@ -30,7 +30,12 @@ import {
   getExploreSitePresenceServer,
   getExploreSiteRelatedServer,
   getExploreSiteReviewsServer,
+  getDiveSiteMomentsServer,
 } from "@/features/diveSpots/api/explore-v1.server";
+import {
+  MomentPlayer,
+  momentPlaybackFromUrls,
+} from "@/features/media/components/MomentPlayer";
 import { DiveSiteLikeButton } from "@/features/explore/components/DiveSiteLikeButton";
 import {
   breadcrumbJsonLd,
@@ -179,12 +184,14 @@ export default async function ExploreSharePage({ params }: PageProps) {
     affinitiesPage,
     communityPostsPage,
     reviewsPage,
+    momentsPage,
   ] = await Promise.all([
     getExploreSiteRelatedServer(slug),
     getExploreSitePresenceServer(slug, 6),
     getExploreSiteAffinitiesServer(slug, 6),
     getExploreSiteCommunityPostsServer(slug, undefined, 6),
     getExploreSiteReviewsServer(slug, 6),
+    getDiveSiteMomentsServer(data.site.id, 12),
   ]);
 
   const site = data.site;
@@ -395,6 +402,45 @@ export default async function ExploreSharePage({ params }: PageProps) {
             ))}
           </div>
         </section>
+
+        {momentsPage.items.length > 0 ? (
+          <section className="space-y-3">
+            <div>
+              <h2 className="text-xl font-semibold text-foreground">Moments</h2>
+              <p className="text-sm text-muted-foreground">
+                Recent public Moments recorded at this dive spot.
+              </p>
+            </div>
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+              {momentsPage.items.map((moment, index) => {
+                const playback = momentPlaybackFromUrls({
+                  playback: moment.playback,
+                  playbackUrl: moment.playbackUrl,
+                  posterUrl: moment.thumbnailUrl,
+                });
+                return (
+                  <div
+                    className="aspect-[9/16] overflow-hidden rounded-2xl bg-muted"
+                    key={moment.id}
+                  >
+                    <MomentPlayer
+                      autoPlay={index === 0}
+                      controls={index !== 0}
+                      hlsUrl={playback.hlsUrl}
+                      iframeUrl={playback.iframeUrl}
+                      loop={index === 0}
+                      muted
+                      playsInline
+                      posterUrl={playback.posterUrl}
+                      title={moment.caption || `${site.name} Moment`}
+                      videoClassName="object-cover"
+                    />
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+        ) : null}
 
         <DiveSiteRelatedTabs
           siteId={site.id}

@@ -55,6 +55,7 @@ func main() {
 	}
 	if deps.MediaService != nil {
 		go deps.MediaService.RunExpiredMomentCleanupProcessor(hubCtx, 10*time.Minute)
+		go deps.MediaService.RunMomentStatusReconciler(hubCtx, time.Minute, 25)
 	}
 
 	router := app.NewRouterWithBuildInfo(cfg, deps, logger, mid.Recover(logger), app.BuildInfo{

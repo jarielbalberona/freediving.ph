@@ -9,7 +9,9 @@ const read = (relativePath) =>
 
 test("mobile media posts have a first-class detail route and shared API contract", () => {
   const route = read("app/(app)/(tabs)/(home)/media/[postId].tsx");
-  const screen = read("src/features/media/screens/media-post-detail-screen.tsx");
+  const screen = read(
+    "src/features/media/screens/media-post-detail-screen.tsx",
+  );
   const api = read("src/features/media/api/media-api.ts");
   const query = read("src/features/media/hooks/use-media-post-detail-query.ts");
   const keys = read("src/lib/query/query-keys.ts");
@@ -31,11 +33,19 @@ test("mobile media posts have a first-class detail route and shared API contract
 
 test("feed, profile, notifications, and public links can open media detail", () => {
   const feedModel = read("src/features/home-feed/lib/activity-card-model.ts");
-  const feedItems = read("src/features/home-feed/components/mobile-feed-items.tsx");
-  const profileGrid = read("src/features/profiles/components/profile-media-masonry-grid.tsx");
+  const feedItems = read(
+    "src/features/home-feed/components/mobile-feed-items.tsx",
+  );
+  const profileGrid = read(
+    "src/features/profiles/components/profile-media-masonry-grid.tsx",
+  );
   const resolver = read("src/features/shared/links/lib/resolve-fph-link.ts");
-  const resolverTests = read("src/features/shared/links/__tests__/resolve-fph-link.test.ts");
-  const notificationFormat = read("src/features/notifications/lib/notification-format.ts");
+  const resolverTests = read(
+    "src/features/shared/links/__tests__/resolve-fph-link.test.ts",
+  );
+  const notificationFormat = read(
+    "src/features/notifications/lib/notification-format.ts",
+  );
 
   assert.match(feedModel, /media_post_created/);
   assert.match(feedModel, /\/\(app\)\/\(tabs\)\/\(home\)\/media/);
@@ -50,7 +60,9 @@ test("feed, profile, notifications, and public links can open media detail", () 
 test("media social mutations cover like, save, comments, delete, and comment-like", () => {
   const api = read("src/features/media/api/media-api.ts");
   const mutations = read("src/features/media/hooks/use-media-mutations.ts");
-  const commentsSheet = read("src/features/media/components/media-post-comments-sheet.tsx");
+  const commentsSheet = read(
+    "src/features/media/components/media-post-comments-sheet.tsx",
+  );
 
   for (const symbol of [
     "likeMediaPost",
@@ -70,4 +82,28 @@ test("media social mutations cover like, save, comments, delete, and comment-lik
   assert.match(mutations, /patchMediaPostDetailCommentCount/);
   assert.match(commentsSheet, /Delete comment/);
   assert.match(commentsSheet, /Unlike comment/);
+});
+
+test("Moments preserve playback metadata and render native HLS video app-wide", () => {
+  const player = read("src/features/media/components/mobile-moment-player.tsx");
+  const feedModel = read("src/features/home-feed/lib/activity-card-model.ts");
+  const feed = read(
+    "src/features/home-feed/components/mobile-feed-primitives.tsx",
+  );
+  const detail = read(
+    "src/features/media/screens/media-post-detail-screen.tsx",
+  );
+  const explore = read(
+    "src/features/explore/screens/explore-site-detail-screen.tsx",
+  );
+
+  assert.match(player, /from "expo-video"/);
+  assert.match(player, /useVideoPlayer/);
+  assert.match(player, /manifest\/video\.m3u8/);
+  assert.match(feedModel, /playback: media\.playback/);
+  assert.match(feedModel, /playbackUrl: media\.playbackUrl/);
+  assert.match(feed, /MobileMomentPlayer/);
+  assert.match(detail, /playback: item\.playback/);
+  assert.match(explore, /useDiveSiteMomentsQuery/);
+  assert.match(explore, /MobileMomentPlayer/);
 });

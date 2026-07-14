@@ -37,8 +37,11 @@ const mediaViewerItemsFromPostItems = (
       displayUrl: item.previewUrl ?? item.thumbnailUrl ?? item.playbackUrl ?? undefined,
       height: item.height,
       id: item.id,
+      playback: item.playback,
+      playbackUrl: item.playbackUrl ?? undefined,
       previewUrl: item.previewUrl ?? item.thumbnailUrl ?? undefined,
       thumbnailUrl: item.thumbnailUrl ?? undefined,
+      type: item.type,
       viewerUrl:
         item.previewUrl ?? item.thumbnailUrl ?? item.playbackUrl ?? undefined,
       width: item.width,

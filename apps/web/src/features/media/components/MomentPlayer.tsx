@@ -70,6 +70,34 @@ export function MomentPlayer({
 
   useEffect(() => {
     const video = videoRef.current;
+    if (!video || !autoPlay) return;
+
+    let visible = false;
+    const updatePlayback = () => {
+      if (visible && document.visibilityState === "visible") {
+        void video.play().catch(() => undefined);
+      } else {
+        video.pause();
+      }
+    };
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        visible = Boolean(entry?.isIntersecting && entry.intersectionRatio >= 0.6);
+        updatePlayback();
+      },
+      { threshold: [0, 0.6, 1] },
+    );
+    observer.observe(video);
+    document.addEventListener("visibilitychange", updatePlayback);
+    return () => {
+      observer.disconnect();
+      document.removeEventListener("visibilitychange", updatePlayback);
+      video.pause();
+    };
+  }, [autoPlay, hlsUrl]);
+
+  useEffect(() => {
+    const video = videoRef.current;
     if (!hlsUrl || !video) {
       setMode(iframeUrl ? "iframe" : "unavailable");
       return;
@@ -141,7 +169,7 @@ export function MomentPlayer({
         ref={videoRef}
         poster={posterUrl ?? undefined}
         muted={muted}
-        autoPlay={autoPlay}
+        autoPlay={false}
         controls={controls}
         loop={loop}
         playsInline={playsInline}

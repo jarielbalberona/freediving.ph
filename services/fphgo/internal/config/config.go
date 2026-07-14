@@ -37,6 +37,7 @@ type Config struct {
 	MomentsEnabled                    bool
 	CloudflareAccountID               string
 	CloudflareStreamAPIToken          string
+	CloudflareStreamWebhookSecret     string
 	CloudflareStreamRequireSignedURLs bool
 	ChikaPseudonymSecret              string
 	WSFanoutChannel                   string
@@ -123,6 +124,7 @@ func Load() (Config, error) {
 	momentsEnabled := parseBoolEnvWithDefault(os.Getenv("MOMENTS_ENABLED"), strings.EqualFold(env, "production"))
 	cloudflareAccountID := strings.TrimSpace(os.Getenv("CLOUDFLARE_ACCOUNT_ID"))
 	cloudflareStreamAPIToken := strings.TrimSpace(os.Getenv("CLOUDFLARE_STREAM_API_TOKEN"))
+	cloudflareStreamWebhookSecret := strings.TrimSpace(os.Getenv("CLOUDFLARE_STREAM_WEBHOOK_SECRET"))
 	cloudflareStreamRequireSignedURLs := parseBoolEnv(os.Getenv("CLOUDFLARE_STREAM_REQUIRE_SIGNED_URLS"))
 	if cloudflareStreamRequireSignedURLs {
 		// Moments currently persist public Stream iframe URLs. Do not enable signed
@@ -209,6 +211,7 @@ func Load() (Config, error) {
 		MomentsEnabled:                    momentsEnabled,
 		CloudflareAccountID:               cloudflareAccountID,
 		CloudflareStreamAPIToken:          cloudflareStreamAPIToken,
+		CloudflareStreamWebhookSecret:     cloudflareStreamWebhookSecret,
 		CloudflareStreamRequireSignedURLs: cloudflareStreamRequireSignedURLs,
 		ChikaPseudonymSecret:              chikaPseudonymSecret,
 		WSFanoutChannel:                   wsFanoutChannel,

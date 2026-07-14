@@ -54,6 +54,7 @@ await fetch("/v1/messages/threads?category=primary", {
 - `MOMENTS_ENABLED` (optional; defaults to `true` in production and `false` elsewhere)
 - `CLOUDFLARE_ACCOUNT_ID` (required when `MOMENTS_ENABLED=true`)
 - `CLOUDFLARE_STREAM_API_TOKEN` (required when `MOMENTS_ENABLED=true`; server-side only)
+- `CLOUDFLARE_STREAM_WEBHOOK_SECRET` (returned when the account-level Stream webhook is created; server-side only)
 - `CLOUDFLARE_STREAM_REQUIRE_SIGNED_URLS` (must remain `false`; signed Moment playback is not implemented)
 - `CHIKA_PSEUDONYM_SECRET` (required in production; HMAC secret for pseudonymous alias generation)
 

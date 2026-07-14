@@ -1,6 +1,10 @@
 import type { Href } from "expo-router";
 
-import type { ActivityFeedItem, ChikaReactionType } from "@freediving.ph/types";
+import type {
+  ActivityFeedItem,
+  ChikaReactionType,
+  MomentPlayback,
+} from "@freediving.ph/types";
 
 export type HomeActivityCardType =
   | "buddy_signal"
@@ -53,8 +57,11 @@ export type HomeActivityMediaItem = {
   height?: number;
   id: string;
   mediaObjectId?: string;
+  playback?: MomentPlayback | null;
+  playbackUrl?: string;
   previewUrl?: string;
   thumbnailUrl?: string;
+  type?: string;
   width?: number;
 };
 
@@ -130,10 +137,13 @@ const mediaItemPreview = (
   height: typeof media.height === "number" ? media.height : undefined,
   id: media.id || media.mediaObjectId || `media-${index + 1}`,
   mediaObjectId: media.mediaObjectId,
+  playback: media.playback,
+  playbackUrl: media.playbackUrl,
   previewUrl: safeRemoteImageUrl(
     media.previewUrl || media.displayUrl || media.thumbnailUrl || media.dialogUrl,
   ),
   thumbnailUrl: safeRemoteImageUrl(media.thumbnailUrl),
+  type: media.type,
   width: typeof media.width === "number" ? media.width : undefined,
 });
 

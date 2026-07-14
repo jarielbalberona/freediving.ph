@@ -564,6 +564,32 @@ func (r *Repo) MarkExpiredMomentUploadsFailed(ctx context.Context, now time.Time
 	})
 }
 
+func (r *Repo) ListPendingMomentStreamUIDs(ctx context.Context, limit int32) ([]string, error) {
+	rows, err := r.pool.Query(ctx, `
+		SELECT stream_uid
+		FROM media_items
+		WHERE type = 'video'
+		  AND provider = 'cloudflare_stream'
+		  AND processing_status = 'processing'
+		  AND stream_uid IS NOT NULL
+		  AND deleted_at IS NULL
+		ORDER BY updated_at ASC
+		LIMIT $1`, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	uids := make([]string, 0, limit)
+	for rows.Next() {
+		var uid string
+		if err := rows.Scan(&uid); err != nil {
+			return nil, err
+		}
+		uids = append(uids, uid)
+	}
+	return uids, rows.Err()
+}
+
 func (r *Repo) ListProfileMediaByUsername(ctx context.Context, input ListProfileMediaInput) ([]ProfileMediaItem, error) {
 	rows, err := r.queries.ListProfileMediaByUsername(ctx, mediaqlc.ListProfileMediaByUsernameParams{
 		ViewerUserID: toUUID(input.ViewerUserID),

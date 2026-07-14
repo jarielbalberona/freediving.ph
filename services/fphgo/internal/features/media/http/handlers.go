@@ -1,6 +1,10 @@
 package http
 
 import (
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"io"
 	"net/http"
@@ -20,12 +24,80 @@ import (
 )
 
 type Handlers struct {
-	service   *mediaservice.Service
-	validator httpx.Validator
+	service             *mediaservice.Service
+	validator           httpx.Validator
+	streamWebhookSecret string
 }
 
-func New(service *mediaservice.Service, validator httpx.Validator) *Handlers {
-	return &Handlers{service: service, validator: validator}
+func New(service *mediaservice.Service, validator httpx.Validator, streamWebhookSecret ...string) *Handlers {
+	secret := ""
+	if len(streamWebhookSecret) > 0 {
+		secret = strings.TrimSpace(streamWebhookSecret[0])
+	}
+	return &Handlers{service: service, validator: validator, streamWebhookSecret: secret}
+}
+
+const streamWebhookMaxAge = 5 * time.Minute
+
+type streamWebhookPayload struct {
+	UID string `json:"uid"`
+}
+
+func (h *Handlers) CloudflareStreamWebhook(w http.ResponseWriter, r *http.Request) {
+	if h.service == nil || h.streamWebhookSecret == "" {
+		httpx.Error(w, middleware.RequestIDFromContext(r.Context()), apperrors.New(http.StatusServiceUnavailable, "moment_webhook_unavailable", "Moment processing webhook is not configured", nil))
+		return
+	}
+	body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, 1<<20))
+	if err != nil {
+		httpx.Error(w, middleware.RequestIDFromContext(r.Context()), apperrors.New(http.StatusBadRequest, "invalid_webhook", "Invalid webhook payload", err))
+		return
+	}
+	if err := verifyStreamWebhookSignature(h.streamWebhookSecret, r.Header.Get("Webhook-Signature"), body, time.Now()); err != nil {
+		httpx.Error(w, middleware.RequestIDFromContext(r.Context()), apperrors.New(http.StatusUnauthorized, "invalid_webhook_signature", "Invalid webhook signature", err))
+		return
+	}
+	var payload streamWebhookPayload
+	if err := json.Unmarshal(body, &payload); err != nil || strings.TrimSpace(payload.UID) == "" {
+		httpx.Error(w, middleware.RequestIDFromContext(r.Context()), apperrors.New(http.StatusBadRequest, "invalid_webhook", "Invalid webhook payload", err))
+		return
+	}
+	if err := h.service.HandleMomentStreamWebhook(r.Context(), payload.UID); err != nil {
+		httpx.Error(w, middleware.RequestIDFromContext(r.Context()), err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func verifyStreamWebhookSignature(secret, header string, body []byte, now time.Time) error {
+	parts := strings.Split(header, ",")
+	values := make(map[string]string, len(parts))
+	for _, part := range parts {
+		key, value, ok := strings.Cut(strings.TrimSpace(part), "=")
+		if ok {
+			values[key] = value
+		}
+	}
+	rawTime, rawSignature := values["time"], values["sig1"]
+	timestamp, err := strconv.ParseInt(rawTime, 10, 64)
+	if err != nil || rawSignature == "" {
+		return errors.New("malformed Webhook-Signature header")
+	}
+	sentAt := time.Unix(timestamp, 0)
+	if sentAt.Before(now.Add(-streamWebhookMaxAge)) || sentAt.After(now.Add(streamWebhookMaxAge)) {
+		return errors.New("webhook timestamp is outside the accepted window")
+	}
+	signature, err := hex.DecodeString(rawSignature)
+	if err != nil {
+		return errors.New("webhook signature is not hexadecimal")
+	}
+	mac := hmac.New(sha256.New, []byte(secret))
+	_, _ = mac.Write([]byte(rawTime + "."))
+	_, _ = mac.Write(body)
+	if !hmac.Equal(signature, mac.Sum(nil)) {
+		return errors.New("webhook signature mismatch")
+	}
+	return nil
 }
 
 func (h *Handlers) Upload(w http.ResponseWriter, r *http.Request) {
@@ -482,7 +554,7 @@ func (h *Handlers) ListProfileMoments(w http.ResponseWriter, r *http.Request) {
 		}
 		limit = int32(parsed)
 	}
-	result, err := h.service.ListProfileMedia(r.Context(), mediaservice.ListProfileMediaInput{
+	result, err := h.service.ListProfileMoments(r.Context(), mediaservice.ListProfileMediaInput{
 		Username:     chi.URLParam(r, "username"),
 		ViewerUserID: actorIDIfPresent(r),
 		Cursor:       strings.TrimSpace(r.URL.Query().Get("cursor")),

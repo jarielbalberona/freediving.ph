@@ -57,6 +57,8 @@ export const mobileQueryKeys = {
       [...mobileQueryKeys.explore.siteDetail(slug), "reviews"] as const,
     communityPosts: (slug: string) =>
       [...mobileQueryKeys.explore.siteDetail(slug), "community-posts"] as const,
+    moments: (siteId: string) =>
+      [...mobileQueryKeys.explore.all, "sites", siteId, "moments"] as const,
   },
   chika: {
     all: ["chika"] as const,
