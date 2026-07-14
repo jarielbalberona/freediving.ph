@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "next dev --turbopack --port 4001",
     "build": "next build",
-    "start": "next start --port 4001",
+    "start": "next start --port ${PORT:-4001}",
     "lint": "biome lint .",
     "format": "biome format --write .",
     "type-check": "tsc --noEmit",
